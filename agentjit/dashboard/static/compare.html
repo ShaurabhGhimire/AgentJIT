@@ -37,6 +37,27 @@ svg { width:100%; height:220px; display:block; }
 .drift { display:flex; gap:6px; flex-wrap:wrap; }
 .status-active { color:var(--jit); } .status-demoted,.status-rejected { color:var(--base); } .status-probation { color:var(--warn); }
 @media (max-width:900px){ main{grid-template-columns:1fr;} .atlas{grid-template-columns:1fr 1fr;} }
+
+.flowwrap { overflow-x:auto; }
+#flow { width:100%; min-width:760px; height:auto; display:block; }
+#flow .node rect { fill:#11151b; stroke:#2f3744; stroke-width:1.5; rx:8; transition:stroke .3s, fill .3s; }
+#flow .node text { fill:var(--fg); font-size:13px; font-weight:600; text-anchor:middle; }
+#flow .node .sub { fill:var(--mut); font-size:10.5px; font-weight:400; font-family:ui-monospace,Menlo,monospace; }
+#flow .coll rect { fill:#0f1a14; stroke:#1f4d33; }
+#flow .coll text { font-size:11.5px; font-family:ui-monospace,Menlo,monospace; font-weight:500; }
+#flow .coll .cnt { fill:var(--mongo); font-size:10.5px; }
+#flow .wire { stroke:#2a303a; stroke-width:2; fill:none; }
+#flow .wire.dash { stroke-dasharray:5 5; }
+#flow .lbl { fill:var(--mut); font-size:10.5px; }
+#flow .atlas { fill:rgba(0,237,100,.035); stroke:#1f7a45; stroke-width:1.5; stroke-dasharray:7 5; rx:14; }
+#flow .atlas-title { fill:var(--mongo); font-size:12px; font-weight:700; letter-spacing:.04em; }
+#flow .hit rect { animation:hit .9s ease-out; }
+@keyframes hit { 0% { stroke:var(--hc,#00ed64); fill:rgba(0,237,100,.28); stroke-width:3; } 100% { stroke-width:1.5; } }
+#flow .atlas.pulse { animation:atl 1s ease-out; }
+@keyframes atl { 0% { fill:rgba(0,237,100,.12); } 100% { fill:rgba(0,237,100,.035); } }
+.flowlegend { display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--mut); margin-top:6px; }
+.flowlegend i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; vertical-align:-1px; box-shadow:0 0 6px currentColor; }
+@media (prefers-reduced-motion: reduce) { #flow .hit rect, #flow .atlas.pulse { animation:none; } }
 </style>
 </head>
 <body>
@@ -83,6 +104,36 @@ svg { width:100%; height:220px; display:block; }
     <h2>Latency per task (ms, rolling mean of 10)</h2>
     <svg id="c-lat"></svg>
     <div class="legend"><span><i class="chip" style="background:var(--base)"></i>without</span><span><i class="chip" style="background:var(--jit)"></i>with AgentJIT</span></div>
+  </section>
+  <section class="card full">
+    <h2><span class="dot" style="background:var(--mongo)"></span>Live data flow: every pulse is a real Atlas change-stream event</h2>
+    <div class="flowwrap">
+    <svg id="flow" viewBox="0 0 1000 322" role="img" aria-label="Animated data flow from incoming tasks through AgentJIT layers into MongoDB Atlas collections">
+      <defs>
+        <filter id="glow" x="-200%" y="-200%" width="500%" height="500%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <rect class="atlas" id="atlasbox" x="700" y="30" width="285" height="286"/>
+      <text class="atlas-title" x="716" y="50">MONGODB ATLAS · agentjit</text>
+      <path class="wire" d="M130 160 H170"/>
+      <path class="wire" d="M300 160 H320 V95 H340 M300 160 H320 V225 H340"/>
+      <path class="wire" d="M480 95 H500 V160 H520 M480 225 H500 V160"/>
+      <path class="wire" d="M660 160 H700"/>
+      <path class="wire dash" d="M410 120 V200" style="stroke:#5a4a1a"/>
+      <text class="lbl" x="418" y="165">deopt</text>
+      <path class="wire dash" d="M235 185 V306 H775 V285"/>
+      <text class="lbl" x="250" y="300">$vectorSearch on task_families</text>
+      <path class="wire dash" d="M975 85 H992 V12 H410 V70" style="stroke:#1d3d5c"/>
+      <text class="lbl" x="560" y="24">change stream → hot-swap skill in the runtime</text>
+      <g id="svg-nodes"></g>
+      <g id="svg-pulses"></g>
+    </svg>
+    </div>
+    <div class="flowlegend">
+      <span style="color:var(--mongo)"><i style="background:var(--mongo)"></i>write to Atlas</span>
+      <span style="color:var(--warn)"><i style="background:var(--warn)"></i>deopt: compiled → LLM</span>
+      <span style="color:#b48cff"><i style="background:#b48cff"></i>shadow test</span>
+      <span style="color:var(--info)"><i style="background:var(--info)"></i>change stream pushed back to the runtime</span>
+    </div>
   </section>
   <section class="card full">
     <h2><span class="dot" style="background:var(--mongo)"></span>MongoDB Atlas: what each feature is doing right now</h2>
@@ -165,9 +216,105 @@ function render() {
     F("Document model", j.length, "whole traces, skills, and deopt frames stored as nested documents") +
     F("TTL index", A.blocklist, "families in megamorphic cooldown (auto-expire)");
   $("skills").innerHTML = A.skills.map(s => `<div><span class="status-${s.status}">${s.status}</span> ${s.id}${s.reason ? " · " + s.reason : ""}</div>`).join("") || "<div>none yet</div>";
-  $("feed").innerHTML = S.feed.map(f => `<div>${f.ts} <span class="op">${f.op}</span> ${f.coll}</div>`).join("") || "<div>waiting for events…</div>";
+  $("feed").innerHTML = S.feed.slice(0, 15).map(f => `<div>${f.ts} <span class="op">${f.op}</span> ${f.coll}</div>`).join("") || "<div>waiting for events…</div>";
 }
-async function tick() { try { S = await (await fetch("/api/compare/state")).json(); render(); } catch (e) { console.error(e); } }
+
+// ---- live data-flow animation ----
+const NS = "http://www.w3.org/2000/svg";
+const N = {
+  task: { x: 20, y: 135, w: 110, h: 50, t: "Refund request", sub: "incoming task" },
+  router: { x: 170, y: 135, w: 130, h: 50, t: "Router", sub: "$vectorSearch" },
+  compiled: { x: 340, y: 70, w: 140, h: 50, t: "Compiled skill", sub: "guarded code" },
+  llm: { x: 340, y: 200, w: 140, h: 50, t: "LLM interpreter", sub: "Claude" },
+  gateway: { x: 520, y: 135, w: 140, h: 50, t: "Gateway", sub: "effect journal" },
+};
+const C = {
+  executions: [775, 85], effect_journal: [775, 145], traces: [775, 205], task_families: [775, 265],
+  skills: [915, 85], deopt_events: [915, 145], shadow_runs: [915, 205], metrics: [915, 265],
+};
+const CNT = {};
+const ctr = k => [N[k].x + N[k].w / 2, N[k].y + N[k].h / 2];
+(function drawNodes() {
+  const g = $("svg-nodes");
+  const box = (id, x, y, w, h, t, sub, cls) => {
+    const e = document.createElementNS(NS, "g"); e.setAttribute("class", "node " + (cls || "")); e.id = "n-" + id;
+    e.innerHTML = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8"/>` +
+      `<text x="${x + w / 2}" y="${y + (sub ? h / 2 - 2 : h / 2 + 4)}">${t}</text>` +
+      (sub ? `<text class="${cls ? "cnt" : "sub"}" x="${x + w / 2}" y="${y + h / 2 + 13}">${sub}</text>` : "");
+    g.appendChild(e);
+  };
+  for (const [k, n] of Object.entries(N)) box(k, n.x, n.y, n.w, n.h, n.t, n.sub);
+  for (const [k, [cx, cy]] of Object.entries(C)) box(k, cx - 62, cy - 20, 124, 40, k + (k === "metrics" ? " ⏱" : ""), "0 events", "coll");
+})();
+function flash(id, color) {
+  const e = $("n-" + id); if (!e) return;
+  e.style.setProperty("--hc", color); e.classList.remove("hit"); void e.getBBox(); e.classList.add("hit");
+  if (C[id]) { CNT[id] = (CNT[id] || 0) + 1; e.querySelector(".cnt").textContent = CNT[id] + (CNT[id] === 1 ? " event" : " events"); }
+}
+const toColl = (c) => { const [cx, cy] = C[c]; return cx < 845 ? [[705, 160], [705, cy], [cx, cy]] : [[845, 160], [845, cy], [cx, cy]]; };
+const lane = r => r === "compiled" ? "compiled" : "llm";
+function pathFor(ev) {
+  const G = ctr("gateway"), R = ctr(lane(ev.route));
+  const via = k => { const [x, y] = ctr(k); return [x, y]; };
+  switch (ev.coll) {
+    case "executions": return { pts: [via("task"), via("router"), [320, 160], [320, R[1]], R, [500, R[1]], [500, 160], G, [700, 160], ...toColl("executions")],
+                                c: "#00ed64", stops: ["router", lane(ev.route), "gateway"], side: true };
+    case "effect_journal": return { pts: [G, [700, 160], ...toColl("effect_journal")], c: "#00ed64", stops: [] };
+    case "traces": return { pts: [R, [500, R[1]], [500, 160], G, [700, 160], ...toColl("traces")], c: "#00ed64", stops: ["gateway"] };
+    case "deopt_events": return { pts: [via("compiled"), via("llm"), [500, 225], [500, 160], G, [700, 160], ...toColl("deopt_events")], c: "#f5a524", stops: ["llm", "gateway"] };
+    case "shadow_runs": return { pts: [via("llm"), [500, 225], [500, 160], G, [700, 160], ...toColl("shadow_runs")], c: "#b48cff", stops: ["gateway"] };
+    case "skills": return { pts: [C.skills, [975, 85], [992, 85], [992, 12], [410, 12], [410, 70]], c: "#3e8ed0", stops: [], end: "compiled", from: "skills" };
+  }
+  return null;
+}
+const pulses = [];
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function launch(p, delay = 0) {
+  if (!p) return;
+  const segs = []; let L = 0;
+  for (let i = 1; i < p.pts.length; i++) { const [a, b] = [p.pts[i - 1], p.pts[i]]; const d = Math.hypot(b[0] - a[0], b[1] - a[1]); segs.push([a, b, L, d]); L += d; }
+  const dots = [0, 1, 2, 3].map(i => { const c = document.createElementNS(NS, "circle"); c.setAttribute("r", 5 - i); c.setAttribute("fill", p.c);
+    c.setAttribute("opacity", 1 - i * 0.22); if (!i) c.setAttribute("filter", "url(#glow)"); c.style.display = "none"; $("svg-pulses").appendChild(c); return c; });
+  const stopAt = p.stops.map(k => { const [x, y] = ctr(k); let best = 0, bd = 1e9; segs.forEach(([a, b, s0, d]) => { for (const t of [0, 1]) { const px = a[0] + (b[0] - a[0]) * t, py = a[1] + (b[1] - a[1]) * t; const dd = Math.hypot(px - x, py - y); if (dd < bd) { bd = dd; best = s0 + d * t; } } }); return [best, k]; });
+  pulses.push({ p, segs, L, dots, t0: performance.now() + delay, fired: new Set() });
+  if (p.from) setTimeout(() => flash(p.from, p.c), delay);
+  pulses[pulses.length - 1].stopAt = stopAt;
+}
+function at(segs, s) { for (const [a, b, s0, d] of segs) if (s <= s0 + d) { const t = d ? (s - s0) / d : 0; return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; } const l = segs[segs.length - 1][1]; return l; }
+const SPEED = 0.55; // px per ms
+function frame(now) {
+  for (let i = pulses.length - 1; i >= 0; i--) {
+    const q = pulses[i], s = (now - q.t0) * SPEED;
+    if (s < 0) continue;
+    q.dots.forEach((c, k) => { const sk = Math.max(0, Math.min(q.L, s - k * 9)); const [x, y] = at(q.segs, sk); c.setAttribute("cx", x); c.setAttribute("cy", y); c.style.display = ""; });
+    for (const [d, k] of q.stopAt) if (s >= d && !q.fired.has(k)) { q.fired.add(k); flash(k, q.p.c); }
+    if (s >= q.L) {
+      const last = q.p.end || Object.keys(C).find(k => q.segs.length && C[k][0] === q.segs[q.segs.length - 1][1][0] && C[k][1] === q.segs[q.segs.length - 1][1][1]);
+      if (last) flash(last, q.p.c);
+      $("atlasbox").classList.remove("pulse"); void $("atlasbox").getBBox(); if (q.p.end !== "compiled") $("atlasbox").classList.add("pulse");
+      q.dots.forEach(c => c.remove()); pulses.splice(i, 1);
+    }
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+let lastSeq = null, lastMetrics = null;
+function animateFeed() {
+  const evs = (S.feed || []).filter(f => f.seq);
+  const top = evs.length ? evs[0].seq : 0;
+  if (lastSeq === null || top < lastSeq) { lastSeq = top; lastMetrics = S.atlas.metrics; return; }
+  const fresh = evs.filter(f => f.seq > lastSeq).reverse().slice(-24);
+  lastSeq = top;
+  fresh.forEach((ev, i) => {
+    const p = pathFor(ev); const d = i * 1900 / Math.max(1, fresh.length);
+    if (reduced) { setTimeout(() => ev.coll && flash(ev.coll, "#00ed64"), d); return; }
+    launch(p, d);
+    if (ev.coll === "executions") launch({ pts: [ctr("router"), [235, 306], [775, 306], [775, 285]], c: "#00ed64", stops: [], end: "task_families" }, d);
+  });
+  if (lastMetrics !== null && S.atlas.metrics > lastMetrics) for (let k = 0; k < Math.min(6, S.atlas.metrics - lastMetrics); k++) setTimeout(() => flash("metrics", "#00ed64"), 600 + k * 250);
+  lastMetrics = S.atlas.metrics;
+}
+async function tick() { try { S = await (await fetch("/api/compare/state")).json(); render(); animateFeed(); } catch (e) { console.error(e); } }
 async function run(n) { await fetch("/api/compare/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ n }) }); tick(); }
 async function drift(b, n = 10) {
   await fetch("/api/compare/drift", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) });

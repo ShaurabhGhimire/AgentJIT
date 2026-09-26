@@ -158,17 +158,21 @@ from agentjit.common.db import get_db, prefix_scope
 
 LANES = {"base": ("demo_base", "A"), "jit": (config.DB_PREFIX, "E")}
 _cmp_runner: dict[str, Any] = {"base": 0, "jit": 0}
-_feed: collections.deque = collections.deque(maxlen=40)
+_feed: collections.deque = collections.deque(maxlen=120)
 
 
 def _watch_feed() -> None:
     prefix = LANES["jit"][0] + "_"
-    names = [prefix + n for n in ("skills", "deopt_events", "shadow_runs", "effect_journal", "executions")]
+    names = [prefix + n for n in ("skills", "deopt_events", "shadow_runs", "effect_journal", "executions", "traces")]
+    seq = 0
     try:
         with get_db().watch([{"$match": {"ns.coll": {"$in": names}}}]) as cs:
             for ch in cs:
-                _feed.appendleft({"ts": datetime.now(timezone.utc).strftime("%H:%M:%S"),
-                                  "op": ch["operationType"], "coll": ch["ns"]["coll"][len(prefix):]})
+                seq += 1
+                doc = ch.get("fullDocument") or {}
+                _feed.appendleft({"seq": seq, "ts": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+                                  "op": ch["operationType"], "coll": ch["ns"]["coll"][len(prefix):],
+                                  "route": doc.get("route") or doc.get("mode"), "zone": doc.get("deopt_zone")})
     except Exception as e:  # change streams unavailable: panel just stays empty
         _feed.appendleft({"ts": "", "op": "unavailable", "coll": str(e)[:80]})
 
@@ -208,7 +212,7 @@ def compare_state() -> dict:
             "metrics": col("metrics").count_documents({}),
             "blocklist": col("megamorphic_blocklist").count_documents({}),
         }
-    out["feed"] = list(_feed)[:15]
+    out["feed"] = list(_feed)[:60]
     out["running"] = dict(_cmp_runner)
     out["mode"] = "live Claude via OpenRouter" if llm.available() else "offline (simulated LLM costs)"
     return out
