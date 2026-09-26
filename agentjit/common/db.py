@@ -12,7 +12,13 @@ _client: MongoClient | None = None
 def get_client() -> MongoClient:
     global _client
     if _client is None:
-        _client = MongoClient(config.MONGODB_URI, tz_aware=True)
+        kwargs = {}
+        if config.MONGODB_URI.startswith("mongodb+srv://"):
+            # Atlas needs TLS; some Python installs (e.g. python.org macOS builds) ship no CA roots
+            import certifi
+
+            kwargs["tlsCAFile"] = certifi.where()
+        _client = MongoClient(config.MONGODB_URI, tz_aware=True, **kwargs)
     return _client
 
 

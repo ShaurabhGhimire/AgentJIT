@@ -9,6 +9,7 @@ description = "A tracing JIT compiler for LLM agents, with safe deoptimization a
 requires-python = ">=3.11"
 dependencies = [
     "pymongo[srv]>=4.7",
+    "certifi",
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
     "pydantic>=2.7",

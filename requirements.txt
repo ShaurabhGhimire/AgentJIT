@@ -1,4 +1,5 @@
 pymongo[srv]>=4.7
+certifi
 fastapi>=0.111
 uvicorn[standard]>=0.30
 pydantic>=2.7
