@@ -15,7 +15,7 @@ from __future__ import annotations
 import ast
 import pathlib
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 from agentjit.common import config, llm
@@ -61,9 +61,12 @@ def observe(expr: str, bindings: dict) -> Any:
         return None
     operands = [tree.left, *tree.comparators] if isinstance(tree, ast.Compare) else [tree]
     for node in operands:
-        if isinstance(node, ast.Constant):
-            continue
         src = ast.unparse(node)
+        try:
+            ast.literal_eval(node)
+            continue  # a literal the guard compares against, not an observation
+        except ValueError:
+            pass
         try:
             out[src] = eval_guard(src, bindings)
         except Exception as e:
@@ -135,7 +138,7 @@ class SkillContext:
         for expr in exprs:
             try:
                 ok = eval_guard(expr, self.bindings) is True
-            except Exception as e:
+            except Exception:
                 ok = False
             if not ok:
                 raise DeoptSignal(pc, expr if kind == "entry" else f"post: {expr}", observe(expr, self.bindings), kind)

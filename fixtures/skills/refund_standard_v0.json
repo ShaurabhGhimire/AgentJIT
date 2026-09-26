@@ -1,0 +1,37 @@
+{
+  "_id": "refund_standard@v0",
+  "name": "refund_standard",
+  "version": 0,
+  "family": "refund_request",
+  "status": "active",
+  "shape": "monomorphic",
+  "parent": null,
+  "input_signature": {
+    "order_id": {"type": "string", "extractor": "pattern:order_id@v1"}
+  },
+  "task_guards": [],
+  "entry_guards": [
+    {"expr": "len(shipments) == 1", "support": 22, "kind": "state"},
+    {"expr": "order['currency'] in ['USD']", "support": 22, "kind": "state"},
+    {"expr": "order['days_since_delivery'] <= 30", "support": 22, "kind": "state"},
+    {"expr": "0 < amount <= order['total']", "support": 22, "kind": "state"}
+  ],
+  "steps": [
+    {"pc": 1, "tool": "get_order", "effect": "read", "post": []},
+    {"pc": 2, "tool": "get_shipments", "effect": "read", "post": []},
+    {"pc": 3, "op": "compute_amount", "effect": "pure", "post": []},
+    {"pc": 4, "tool": "payments.refund", "effect": "irreversible", "post": ["refund['status'] == 'succeeded'"]},
+    {"pc": 5, "tool": "tickets.update", "effect": "idempotent", "post": ["ticket['status'] == 'resolved'"]},
+    {"pc": 6, "tool": "email.send", "effect": "irreversible", "post": [], "hole": "email_body"}
+  ],
+  "holes": [
+    {"name": "email_body", "pc": 6, "arg": "body", "tool": "email.send",
+     "schema": {"type": "string", "maxLength": 1200}, "checks": ["mentions(order_id)"],
+     "inputs": ["order_id", "amount"],
+     "examples": [{"text": "Hi Ana, your refund of $49.00 for order A1042 (damaged item) has been processed. You should see it in 3-5 business days.",
+                   "inputs": {"order_id": "A1042", "amount": 49.0}}]}
+  ],
+  "hoist": {"point_of_no_return": 4, "safe_zone": [1, 2, 3], "osr_zone": [4, 5, 6]},
+  "shadow": {"runs": 0, "divergences": 0, "upper_bound_95": 1.0, "window": [], "active_runs": 0},
+  "code_ref": "fixtures/skills/refund_standard_v0.py"
+}
