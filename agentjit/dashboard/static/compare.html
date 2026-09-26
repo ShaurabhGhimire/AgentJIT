@@ -273,27 +273,40 @@ function launch(p, delay = 0) {
   if (!p) return;
   const segs = []; let L = 0;
   for (let i = 1; i < p.pts.length; i++) { const [a, b] = [p.pts[i - 1], p.pts[i]]; const d = Math.hypot(b[0] - a[0], b[1] - a[1]); segs.push([a, b, L, d]); L += d; }
-  const dots = [0, 1, 2, 3].map(i => { const c = document.createElementNS(NS, "circle"); c.setAttribute("r", 5 - i); c.setAttribute("fill", p.c);
-    c.setAttribute("opacity", 1 - i * 0.22); if (!i) c.setAttribute("filter", "url(#glow)"); c.style.display = "none"; $("svg-pulses").appendChild(c); return c; });
+  const g = document.createElementNS(NS, "g"); g.style.display = "none"; $("svg-pulses").appendChild(g);
+  const trail = Array.from({ length: TRAIL_N }, (_, k) => {
+    const l = document.createElementNS(NS, "line"); const f = 1 - k / TRAIL_N;
+    l.setAttribute("stroke", p.c); l.setAttribute("stroke-linecap", "round");
+    l.setAttribute("stroke-width", (1 + 4 * f).toFixed(2)); l.setAttribute("opacity", (0.08 + 0.85 * f * f).toFixed(2));
+    if (k < 4) l.setAttribute("filter", "url(#glow)"); g.appendChild(l); return l; });
+  const head = document.createElementNS(NS, "circle"); head.setAttribute("r", 5.5); head.setAttribute("fill", "#fff");
+  head.setAttribute("stroke", p.c); head.setAttribute("stroke-width", 2.5); head.setAttribute("filter", "url(#glow)"); g.appendChild(head);
+  const dots = { g, trail, head };
   const stopAt = p.stops.map(k => { const [x, y] = ctr(k); let best = 0, bd = 1e9; segs.forEach(([a, b, s0, d]) => { for (const t of [0, 1]) { const px = a[0] + (b[0] - a[0]) * t, py = a[1] + (b[1] - a[1]) * t; const dd = Math.hypot(px - x, py - y); if (dd < bd) { bd = dd; best = s0 + d * t; } } }); return [best, k]; });
   pulses.push({ p, segs, L, dots, t0: performance.now() + delay, fired: new Set() });
   if (p.from) setTimeout(() => flash(p.from, p.c), delay);
   pulses[pulses.length - 1].stopAt = stopAt;
 }
 function at(segs, s) { for (const [a, b, s0, d] of segs) if (s <= s0 + d) { const t = d ? (s - s0) / d : 0; return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; } const l = segs[segs.length - 1][1]; return l; }
-const SPEED = 0.55; // px per ms
+const SPEED = 0.36; // px per ms
+const TRAIL_N = 14, TRAIL_STEP = 9.5; // trail of ~130px, drawn as fading segments
 function frame(now) {
   for (let i = pulses.length - 1; i >= 0; i--) {
     const q = pulses[i], s = (now - q.t0) * SPEED;
     if (s < 0) continue;
-    q.dots.forEach((c, k) => { const sk = Math.max(0, Math.min(q.L, s - k * 9)); const [x, y] = at(q.segs, sk); c.setAttribute("cx", x); c.setAttribute("cy", y); c.style.display = ""; });
+    const { g, trail, head } = q.dots; g.style.display = "";
+    const pos = k => at(q.segs, Math.max(0, Math.min(q.L, s - k * TRAIL_STEP)));
+    let prev = pos(0);
+    head.setAttribute("cx", prev[0]); head.setAttribute("cy", prev[1]); head.style.display = s >= q.L ? "none" : "";
+    trail.forEach((l, k) => { const nx = pos(k + 1); l.setAttribute("x1", prev[0]); l.setAttribute("y1", prev[1]); l.setAttribute("x2", nx[0]); l.setAttribute("y2", nx[1]); prev = nx; });
     for (const [d, k] of q.stopAt) if (s >= d && !q.fired.has(k)) { q.fired.add(k); flash(k, q.p.c); }
-    if (s >= q.L) {
+    if (s >= q.L && !q.arrived) {
+      q.arrived = true;
       const last = q.p.end || Object.keys(C).find(k => q.segs.length && C[k][0] === q.segs[q.segs.length - 1][1][0] && C[k][1] === q.segs[q.segs.length - 1][1][1]);
       if (last) flash(last, q.p.c);
       $("atlasbox").classList.remove("pulse"); void $("atlasbox").getBBox(); if (q.p.end !== "compiled") $("atlasbox").classList.add("pulse");
-      q.dots.forEach(c => c.remove()); pulses.splice(i, 1);
     }
+    if (s >= q.L + TRAIL_N * TRAIL_STEP) { q.dots.g.remove(); pulses.splice(i, 1); }
   }
   requestAnimationFrame(frame);
 }
