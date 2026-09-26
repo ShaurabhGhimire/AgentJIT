@@ -65,7 +65,9 @@ def create(model: str, **kwargs):
     import time
 
     t0 = time.monotonic()
-    if model.startswith("claude-opus-5") or model.startswith("claude-fable"):
+    # server-side fallbacks are first-party only; proxies like OpenRouter reject the field
+    first_party = "api.anthropic.com" in os.getenv("ANTHROPIC_BASE_URL", "api.anthropic.com")
+    if first_party and (model.startswith("claude-opus-5") or model.startswith("claude-fable")):
         resp = client().beta.messages.create(
             model=model,
             betas=["server-side-fallback-2026-07-01"],
