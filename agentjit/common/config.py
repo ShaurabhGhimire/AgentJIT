@@ -1,4 +1,5 @@
 import os
+import pathlib
 
 from dotenv import load_dotenv
 
@@ -34,7 +35,7 @@ PROBATION_BUDGET_RUNS: int = int(os.getenv("PROBATION_BUDGET_RUNS", "400"))
 
 # Dispatch
 EXPLORATION_RATE: float = float(os.getenv("EXPLORATION_RATE", "0.05"))
-FAMILY_MIN_SIMILARITY: float = float(os.getenv("FAMILY_MIN_SIMILARITY", "0.45"))
+
 FAMILY_MIN_MARGIN: float = float(os.getenv("FAMILY_MIN_MARGIN", "0.05"))
 # Share of traffic kept on the parent version while a recompile is in probation.
 PINNED_PARENT_SHARE: float = float(os.getenv("PINNED_PARENT_SHARE", "0.5"))
@@ -69,6 +70,8 @@ VOYAGE_API_KEY: str = os.getenv("VOYAGE_API_KEY", "")
 EMBEDDING_PROVIDER: str = os.getenv("EMBEDDING_PROVIDER", "voyage" if VOYAGE_API_KEY else "local")
 EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "voyage-3.5")
 EMBEDDING_DIMENSIONS: int = int(os.getenv("EMBEDDING_DIMENSIONS", "1024"))
+# The hashing embedding scores lower cosine than a trained model; the margin test does the real work.
+FAMILY_MIN_SIMILARITY: float = float(os.getenv("FAMILY_MIN_SIMILARITY", "0.5" if EMBEDDING_PROVIDER == "voyage" else "0.3"))
 
 # USD per million tokens (input, output)
 MODEL_PRICES: dict[str, tuple[float, float]] = {
@@ -87,4 +90,4 @@ SIM_COST_EMBEDDING: float = float(os.getenv("SIM_COST_EMBEDDING", "0.00002"))
 SIM_LATENCY_INTERPRETER_TURN_MS: int = int(os.getenv("SIM_LATENCY_INTERPRETER_TURN_MS", "900"))
 SIM_LATENCY_HOLE_MS: int = int(os.getenv("SIM_LATENCY_HOLE_MS", "350"))
 
-SKILLS_DIR: str = os.getenv("SKILLS_DIR", "skills")
+SKILLS_DIR: str = os.getenv("SKILLS_DIR", str(pathlib.Path(__file__).resolve().parents[2] / "skills"))

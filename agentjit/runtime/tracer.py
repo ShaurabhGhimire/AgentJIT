@@ -49,6 +49,8 @@ def _same(a: Any, b: Any) -> bool:
 
 
 class Tracer:
+    """inputs: parsed args for compiled runs; {**structured, "text": raw_text} for interpreted runs."""
+
     def __init__(self, inputs: dict[str, Any], family: str, mode: str, exec_id: str,
                  envelope_id: Optional[str] = None, trace_id: Optional[str] = None):
         self.inputs = inputs
@@ -78,10 +80,14 @@ class Tracer:
                 if _same(v, value):
                     return path
         flat = []
-        _flatten(self.inputs, "input", flat)
+        _flatten({k: v for k, v in self.inputs.items() if k != "text"}, "input", flat)
         for path, v in flat:
             if _same(v, value):
                 return path
+        # Interpreted runs: a value lifted out of the request text is grounded in it.
+        text = self.inputs.get("text")
+        if isinstance(value, str) and len(value) >= 4 and isinstance(text, str) and value in text:
+            return "input.text"
         return None
 
     def record(self, tool: str, args: dict[str, Any], result: Any, effect_class: str,

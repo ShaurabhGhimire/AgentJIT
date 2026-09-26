@@ -47,6 +47,9 @@ class Trace(BaseModel):
     verified_success: bool
     cost_usd: float
     deopt_event_id: Optional[str] = None  # set on a deopt continuation trace
+    # "safe": deopt before any effect, the interpreter redid the whole task (a
+    # complete trace the profiler may use); "osr": a partial continuation.
+    deopt_zone: Optional[Literal["safe", "osr"]] = None
     ts: datetime = Field(default_factory=datetime.utcnow)
 
 

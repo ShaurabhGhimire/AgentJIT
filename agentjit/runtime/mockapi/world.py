@@ -83,7 +83,8 @@ def new_order(rng: random.Random, knobs: Optional[dict] = None) -> dict:
     discount = round(rng.choice([0, 0, 0, 5, 10]) if total > 60 else 0.0, 2)
     currency = "EUR" if rng.random() < knobs.get("currency_mix", 0) else "USD"
     parcels = 2 if rng.random() < knobs.get("split_shipment_rate", 0) else 1
-    age = rng.randint(1, int(knobs.get("max_order_age_days", 29)))
+    # Refund requests skew recent: exponential with a 7-day mean, capped.
+    age = min(int(knobs.get("max_order_age_days", 29)), 1 + int(rng.expovariate(1 / 7)))
     delivered_at = _now() - timedelta(days=age, hours=rng.randint(0, 6))
     order = {
         "order_id": order_id, "charge_id": f"ch_{seq}", "total": total, "discount": discount,
