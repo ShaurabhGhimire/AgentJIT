@@ -13,6 +13,9 @@ class TaskEnvelope(BaseModel):
     raw_text: str
     structured: dict[str, Any] = Field(default_factory=dict)
     ts: datetime = Field(default_factory=datetime.utcnow)
+    # Ground truth for the verifier and eval only (e.g. {"order_id": ...}).
+    # The parser and every agent must never read it.
+    truth: dict[str, Any] = Field(default_factory=dict)
 
 
 class TraceStep(BaseModel):
@@ -177,3 +180,5 @@ class ExecResult(BaseModel):
 class VerifierResult(BaseModel):
     ok: bool
     reason: str
+    expected: Optional[str] = None  # refund | deny | escalate, per current policy
+    duplicate_effects: int = 0  # irreversible effects executed more than once
