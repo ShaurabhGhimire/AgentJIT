@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=70", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "agentjit"
+version = "0.1.0"
+description = "A tracing JIT compiler for LLM agents, with safe deoptimization across real-world side effects"
+requires-python = ">=3.11"
+dependencies = [
+    "pymongo[srv]>=4.7",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "anthropic>=0.28",
+    "scipy>=1.13",
+    "python-dotenv>=1.0",
+    "httpx>=0.27",
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.2", "pytest-asyncio>=0.23"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agentjit*"]

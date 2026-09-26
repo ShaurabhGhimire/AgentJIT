@@ -1,0 +1,72 @@
+{
+  "trace_id": "tr_0001",
+  "family": "refund_request",
+  "mode": "interpreted",
+  "signature": "get_order>get_shipments>payments.refund>tickets.update>email.send",
+  "steps": [
+    {
+      "i": 1,
+      "tool": "get_order",
+      "args": {"order_id": "A1042"},
+      "result": {
+        "order_id": "A1042", "charge_id": "ch_77", "total": 49.00,
+        "currency": "USD", "status": "delivered", "customer_email": "ana@acme.io",
+        "ticket_id": "TKT-101", "days_since_delivery": 5, "reason": "damaged"
+      },
+      "result_digest": "a1b2c3d4e5f60001",
+      "provenance": {"order_id": "input.order_id"},
+      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 14
+    },
+    {
+      "i": 2,
+      "tool": "get_shipments",
+      "args": {"order_id": "A1042"},
+      "result": [{"shipment_id": "SHP-101", "tracking": "1Z999AA10123456784", "status": "delivered", "delivered_at": "2026-09-21T14:30:00Z"}],
+      "result_digest": "b2c3d4e5f6a70001",
+      "provenance": {"order_id": "step1.result.order_id"},
+      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 9
+    },
+    {
+      "i": 3,
+      "op": "compute_amount",
+      "args": {"total": 49.00},
+      "result": {"amount": 49.00},
+      "result_digest": "c3d4e5f6a7b80001",
+      "provenance": {"total": "step1.result.total"},
+      "effect_class": "pure", "llm_span": null, "cost": 0.0, "latency": 0
+    },
+    {
+      "i": 4,
+      "tool": "payments.refund",
+      "args": {"charge_id": "ch_77", "amount": 49.00},
+      "result": {"refund_id": "ref_001", "charge_id": "ch_77", "amount": 49.00, "status": "succeeded", "created_at": "2026-09-26T10:00:00Z"},
+      "result_digest": "d4e5f6a7b8c90001",
+      "provenance": {"charge_id": "step1.result.charge_id", "amount": "step3.result.amount"},
+      "effect_class": "irreversible",
+      "llm_span": "Issuing refund of $49.00 to charge ch_77 for order A1042",
+      "cost": 0.008, "latency": 380
+    },
+    {
+      "i": 5,
+      "tool": "tickets.update",
+      "args": {"ticket_id": "TKT-101", "status": "resolved"},
+      "result": {"ticket_id": "TKT-101", "status": "resolved", "updated_at": "2026-09-26T10:00:01Z"},
+      "result_digest": "e5f6a7b8c9d00001",
+      "provenance": {"ticket_id": "step1.result.ticket_id"},
+      "effect_class": "idempotent", "llm_span": null, "cost": 0.0, "latency": 13
+    },
+    {
+      "i": 6,
+      "tool": "email.send",
+      "args": {"to": "ana@acme.io", "subject": "Your refund has been processed", "body": "Hi Ana, your refund of $49.00 for order A1042 (damaged item) has been processed. You should see it in 3-5 business days."},
+      "result": {"message_id": "msg_0001", "to": "ana@acme.io", "delivered": true},
+      "result_digest": "f6a7b8c9d0e10001",
+      "provenance": {"to": "step1.result.customer_email"},
+      "effect_class": "irreversible",
+      "llm_span": "Sending refund confirmation to ana@acme.io for order A1042",
+      "cost": 0.033, "latency": 310
+    }
+  ],
+  "verified_success": true,
+  "cost_usd": 0.041
+}

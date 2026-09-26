@@ -1,0 +1,60 @@
+{
+  "_comment": "DIVERGENT: Refund returns 'pending'. Same sequence; postcondition refund.status=='succeeded' fails. Feeds the residual guard case.",
+  "trace_id": "tr_0019",
+  "family": "refund_request",
+  "mode": "interpreted",
+  "signature": "get_order>get_shipments>payments.refund>tickets.update>email.send",
+  "steps": [
+    {
+      "i": 1, "tool": "get_order", "args": {"order_id": "S0967"},
+      "result": {"order_id": "S0967", "charge_id": "ch_78", "total": 58.00, "currency": "USD", "status": "delivered", "customer_email": "leo@pay.com", "ticket_id": "TKT-119", "days_since_delivery": 7, "reason": "not_received"},
+      "result_digest": "a1b2c3d4e5f60019",
+      "provenance": {"order_id": "input.order_id"},
+      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 13
+    },
+    {
+      "i": 2, "tool": "get_shipments", "args": {"order_id": "S0967"},
+      "result": [{"shipment_id": "SHP-119", "tracking": "1Z999AA10123456019", "status": "delivered", "delivered_at": "2026-09-19T09:00:00Z"}],
+      "result_digest": "b2c3d4e5f6a70019",
+      "provenance": {"order_id": "step1.result.order_id"},
+      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 9
+    },
+    {
+      "i": 3, "op": "compute_amount", "args": {"total": 58.00},
+      "result": {"amount": 58.00},
+      "result_digest": "c3d4e5f6a7b80019",
+      "provenance": {"total": "step1.result.total"},
+      "effect_class": "pure", "llm_span": null, "cost": 0.0, "latency": 0
+    },
+    {
+      "i": 4, "tool": "payments.refund", "args": {"charge_id": "ch_78", "amount": 58.00},
+      "result": {"refund_id": "ref_019", "charge_id": "ch_78", "amount": 58.00, "status": "pending", "created_at": "2026-09-26T10:18:00Z"},
+      "result_digest": "d4e5f6a7b8c90019",
+      "provenance": {"charge_id": "step1.result.charge_id", "amount": "step3.result.amount"},
+      "effect_class": "irreversible",
+      "llm_span": "Refund of $58.00 for order S0967 is pending provider confirmation",
+      "cost": 0.011, "latency": 490
+    },
+    {
+      "i": 5, "tool": "tickets.update", "args": {"ticket_id": "TKT-119", "status": "awaiting_refund"},
+      "result": {"ticket_id": "TKT-119", "status": "awaiting_refund", "updated_at": "2026-09-26T10:18:01Z"},
+      "result_digest": "e5f6a7b8c9d00019",
+      "provenance": {"ticket_id": "step1.result.ticket_id"},
+      "effect_class": "idempotent",
+      "llm_span": "Setting ticket TKT-119 to awaiting_refund because refund is pending",
+      "cost": 0.003, "latency": 12
+    },
+    {
+      "i": 6, "tool": "email.send",
+      "args": {"to": "leo@pay.com", "subject": "Your refund is being processed", "body": "Hi Leo, your refund of $58.00 for order S0967 is currently pending with our payment provider. We will notify you once it has been confirmed, typically within 1-2 business days."},
+      "result": {"message_id": "msg_0019", "to": "leo@pay.com", "delivered": true},
+      "result_digest": "f6a7b8c9d0e10019",
+      "provenance": {"to": "step1.result.customer_email"},
+      "effect_class": "irreversible",
+      "llm_span": "Sending pending-refund notice to leo@pay.com for order S0967",
+      "cost": 0.036, "latency": 330
+    }
+  ],
+  "verified_success": true,
+  "cost_usd": 0.050
+}
