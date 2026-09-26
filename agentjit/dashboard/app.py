@@ -146,3 +146,108 @@ def policy(body: dict) -> dict:
         world.set_policy(refund_window_days=int(body["refund_window_days"]))
         _log_event(f"refund window = {int(body['refund_window_days'])} days")
     return world.get_policy()
+
+
+# ---------------------------------------------------------------------------
+# Side-by-side comparison: plain LLM agent (arm A) vs AgentJIT (arm E)
+# ---------------------------------------------------------------------------
+import collections
+import copy
+
+from agentjit.common.db import get_db, prefix_scope
+
+LANES = {"base": ("demo_base", "A"), "jit": (config.DB_PREFIX, "E")}
+_cmp_runner: dict[str, Any] = {"base": 0, "jit": 0}
+_feed: collections.deque = collections.deque(maxlen=40)
+
+
+def _watch_feed() -> None:
+    prefix = LANES["jit"][0] + "_"
+    names = [prefix + n for n in ("skills", "deopt_events", "shadow_runs", "effect_journal", "executions")]
+    try:
+        with get_db().watch([{"$match": {"ns.coll": {"$in": names}}}]) as cs:
+            for ch in cs:
+                _feed.appendleft({"ts": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+                                  "op": ch["operationType"], "coll": ch["ns"]["coll"][len(prefix):]})
+    except Exception as e:  # change streams unavailable: panel just stays empty
+        _feed.appendleft({"ts": "", "op": "unavailable", "coll": str(e)[:80]})
+
+
+threading.Thread(target=_watch_feed, daemon=True).start()
+
+
+@app.get("/compare")
+def compare_page() -> FileResponse:
+    return FileResponse(STATIC / "compare.html")
+
+
+def _lane_state(prefix: str) -> dict:
+    with prefix_scope(prefix):
+        rows = list(col("executions").find({}, {"_id": 0, "route": 1, "deopt_zone": 1, "cost_usd": 1, "verified": 1,
+                                                "silent_error": 1, "duplicate_effects": 1, "fenced": 1,
+                                                "latency_ms": 1, "diverged": 1}).sort("ts", 1))
+        return {"tasks": rows, "knobs": world.get_knobs(), "policy": world.get_policy()}
+
+
+@app.get("/api/compare/state")
+def compare_state() -> dict:
+    out = {k: _lane_state(p) for k, (p, _) in LANES.items()}
+    with prefix_scope(LANES["jit"][0]):
+        fam = col("task_families").find_one({"family_id": "refund_request"}) or {}
+        last = col("dispatch_decisions").find_one({"family": {"$ne": None}}, {"_id": 0, "family": 1}, sort=[("ts", -1)])
+        out["atlas"] = {
+            "vector_routed": col("dispatch_decisions").count_documents({"family": {"$ne": None}}),
+            "last_match": (last or {}).get("family"),
+            "effects": col("effect_journal").estimated_document_count(),
+            "fenced": sum(d.get("fenced_repeats", 0) for d in col("deopt_events").find({}, {"fenced_repeats": 1})),
+            "skills": [{"id": s["_id"], "status": s["status"], "reason": s.get("demoted_reason") or s.get("rejected_reason")}
+                       for s in col("skills").find({"status": {"$ne": "branch"}}, {"status": 1, "demoted_reason": 1,
+                                                                                    "rejected_reason": 1}).sort("created_at", 1)],
+            "active": fam.get("active_skill"),
+            "hot_segments": list(col("hot_segments").find({}, {"_id": 0, "signature": 0}).limit(3)),
+            "metrics": col("metrics").count_documents({}),
+            "blocklist": col("megamorphic_blocklist").count_documents({}),
+        }
+    out["feed"] = list(_feed)[:15]
+    out["running"] = dict(_cmp_runner)
+    out["mode"] = "live Claude via OpenRouter" if llm.available() else "offline (simulated LLM costs)"
+    return out
+
+
+def _lane_run(lane: str, n: int, start: int) -> None:
+    prefix, arm = LANES[lane]
+    try:
+        with prefix_scope(prefix):
+            rng, route_rng = random.Random(1000 + start), random.Random(2000 + start)
+            for k in range(n):
+                env = stream.make_envelope(rng, start + k)
+                handle_task(copy.deepcopy(env), route_rng, ARMS[arm])
+                _cmp_runner[lane] = n - k - 1
+    finally:
+        _cmp_runner[lane] = 0
+
+
+@app.post("/api/compare/run")
+def compare_run(body: dict) -> dict:
+    if any(_cmp_runner.values()):
+        raise HTTPException(409, "a run is already in progress")
+    n = max(1, min(int(body.get("n", 10)), 200))
+    with prefix_scope(LANES["jit"][0]):
+        start = col("executions").count_documents({})
+    for lane in LANES:
+        _cmp_runner[lane] = n
+        threading.Thread(target=_lane_run, args=(lane, n, start), daemon=True).start()
+    return {"started": n}
+
+
+@app.post("/api/compare/drift")
+def compare_drift(body: dict) -> dict:
+    allowed = {"currency_mix", "split_shipment_rate", "refund_returns_pending"}
+    knobs = {k: v for k, v in body.items() if k in allowed}
+    for prefix, _ in LANES.values():
+        with prefix_scope(prefix):
+            if knobs:
+                world.set_knobs(**knobs)
+            if "refund_window_days" in body:
+                world.set_policy(refund_window_days=int(body["refund_window_days"]))
+    return {"ok": True}

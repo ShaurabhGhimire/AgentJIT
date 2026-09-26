@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import threading
+from contextlib import contextmanager
+from typing import Iterator
+
 from pymongo import MongoClient
 from pymongo.collection import Collection
 from pymongo.database import Database
@@ -7,6 +11,7 @@ from pymongo.database import Database
 from . import config
 
 _client: MongoClient | None = None
+_local = threading.local()
 
 
 def get_client() -> MongoClient:
@@ -32,11 +37,26 @@ def col(name: str) -> Collection:
     Reads config.DB_PREFIX on every call so tests and eval arms can switch
     prefixes at runtime (use_prefix).
     """
-    return get_db()[f"{config.DB_PREFIX}_{name}"]
+    return get_db()[f"{current_prefix()}_{name}"]
+
+
+def current_prefix() -> str:
+    return getattr(_local, "prefix", None) or config.DB_PREFIX
 
 
 def use_prefix(prefix: str) -> None:
     config.DB_PREFIX = prefix
+
+
+@contextmanager
+def prefix_scope(prefix: str) -> Iterator[None]:
+    """Override the prefix for the current thread only (side-by-side lanes in one process)."""
+    old = getattr(_local, "prefix", None)
+    _local.prefix = prefix
+    try:
+        yield
+    finally:
+        _local.prefix = old
 
 
 def drop_prefix(prefix: str) -> None:

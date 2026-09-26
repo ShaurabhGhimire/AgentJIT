@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentJIT: Without vs With</title>
+<style>
+:root { --bg:#0e1116; --card:#171b22; --line:#2a303a; --fg:#e6e9ef; --mut:#8b93a1;
+        --base:#e5484d; --jit:#30a46c; --warn:#f5a524; --info:#3e8ed0; --mongo:#00ed64; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+header { padding:14px 20px; border-bottom:1px solid var(--line); display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+h1 { font-size:18px; margin:0; }
+.badge { font-size:12px; padding:3px 8px; border-radius:99px; background:#222834; color:var(--mut); }
+button { background:#222834; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:7px 11px; cursor:pointer; font-size:13px; }
+button:hover { border-color:var(--mut); } button.primary { background:var(--info); border-color:var(--info); }
+main { padding:16px 20px; display:grid; gap:16px; grid-template-columns:1fr 1fr; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; min-width:0; }
+.full { grid-column:1/-1; }
+h2 { font-size:15px; margin:0 0 10px; display:flex; align-items:center; gap:8px; }
+.dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+.tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.tile { background:#11151b; border-radius:8px; padding:9px 10px; }
+.tile .v { font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; }
+.tile .l { font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:.04em; }
+.ticker { display:flex; flex-wrap:wrap; gap:3px; margin-top:10px; max-height:74px; overflow:hidden; }
+.chip { width:11px; height:11px; border-radius:2px; }
+.legend { display:flex; gap:12px; font-size:12px; color:var(--mut); margin-top:6px; flex-wrap:wrap; }
+.legend span { display:flex; gap:5px; align-items:center; }
+svg { width:100%; height:220px; display:block; }
+.atlas { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+.feat { background:#11151b; border-radius:8px; padding:10px; border-left:3px solid var(--mongo); }
+.feat b { display:block; font-size:13px; } .feat .n { font-size:20px; font-weight:600; margin:2px 0; }
+.feat small { color:var(--mut); font-size:12px; }
+.feed { font:12px ui-monospace,Menlo,monospace; color:var(--mut); max-height:170px; overflow:auto; }
+.feed div { padding:2px 0; border-bottom:1px solid #1d222b; } .feed .op { color:var(--mongo); }
+.drift { display:flex; gap:6px; flex-wrap:wrap; }
+.status-active { color:var(--jit); } .status-demoted,.status-rejected { color:var(--base); } .status-probation { color:var(--warn); }
+@media (max-width:900px){ main{grid-template-columns:1fr;} .atlas{grid-template-columns:1fr 1fr;} }
+</style>
+</head>
+<body>
+<header>
+  <h1>AgentJIT: the same tasks, without vs with</h1>
+  <span class="badge" id="mode">…</span>
+  <button class="primary" onclick="run(10)">▶ Stream 10 tasks</button>
+  <button onclick="run(30)">▶ Stream 30</button>
+  <div class="drift">
+    <button onclick="drift({currency_mix:0.3})">Drift 1: EUR orders</button>
+    <button onclick="drift({refund_returns_pending:0.5})">Drift 2: provider returns "pending"</button>
+    <button onclick="drift({refund_window_days:14})">Drift 3: refund window 30→14 days</button>
+    <button onclick="drift({currency_mix:0,refund_returns_pending:false,refund_window_days:30})">Reset drift</button>
+  </div>
+  <span class="badge" id="running"></span>
+</header>
+<main>
+  <section class="card">
+    <h2><span class="dot" style="background:var(--base)"></span>Without AgentJIT: every task goes through the LLM</h2>
+    <div class="tiles" id="t-base"></div>
+    <div class="ticker" id="k-base"></div>
+  </section>
+  <section class="card">
+    <h2><span class="dot" style="background:var(--jit)"></span>With AgentJIT: hot paths compiled, guarded, shadow-tested</h2>
+    <div class="tiles" id="t-jit"></div>
+    <div class="ticker" id="k-jit"></div>
+  </section>
+  <section class="card full" style="padding-bottom:8px">
+    <div class="legend">
+      <span><i class="chip" style="background:var(--base)"></i>LLM interpreted</span>
+      <span><i class="chip" style="background:var(--jit)"></i>compiled skill</span>
+      <span><i class="chip" style="background:var(--warn)"></i>deopt, safe zone</span>
+      <span><i class="chip" style="background:var(--info)"></i>deopt after side effect (resumed, repeats fenced)</span>
+      <span><i class="chip" style="background:#fff"></i>shadow divergence caught</span>
+    </div>
+  </section>
+  <section class="card">
+    <h2>Cumulative cost ($)</h2>
+    <svg id="c-cost"></svg>
+    <div class="legend"><span><i class="chip" style="background:var(--base)"></i>without</span><span><i class="chip" style="background:var(--jit)"></i>with AgentJIT</span></div>
+  </section>
+  <section class="card">
+    <h2>Latency per task (ms, rolling mean of 10)</h2>
+    <svg id="c-lat"></svg>
+    <div class="legend"><span><i class="chip" style="background:var(--base)"></i>without</span><span><i class="chip" style="background:var(--jit)"></i>with AgentJIT</span></div>
+  </section>
+  <section class="card full">
+    <h2><span class="dot" style="background:var(--mongo)"></span>MongoDB Atlas: what each feature is doing right now</h2>
+    <div class="atlas" id="atlas"></div>
+  </section>
+  <section class="card">
+    <h2>Skill lifecycle (promotions and demotions are multi-document transactions)</h2>
+    <div id="skills" class="feed"></div>
+  </section>
+  <section class="card">
+    <h2>Live change stream (db.watch on the AgentJIT collections)</h2>
+    <div id="feed" class="feed"></div>
+  </section>
+</main>
+<script>
+let S = null;
+const $ = id => document.getElementById(id);
+const money = x => x >= 1 ? "$" + x.toFixed(2) : "$" + x.toFixed(4);
+function color(t) {
+  if (t.diverged) return "#fff";
+  if (t.deopt_zone === "osr") return "var(--info)";
+  if (t.deopt_zone === "safe" || t.deopt_zone === "restart") return "var(--warn)";
+  return t.route === "compiled" ? "var(--jit)" : "var(--base)";
+}
+function stats(ts) {
+  const n = ts.length, last = ts.slice(-20);
+  const cost = ts.reduce((a, t) => a + (t.cost_usd || 0), 0);
+  return {
+    n, cost,
+    per: last.length ? last.reduce((a, t) => a + t.cost_usd, 0) / last.length : 0,
+    lat: last.length ? last.reduce((a, t) => a + t.latency_ms, 0) / last.length : 0,
+    compiled: n ? ts.filter(t => t.route === "compiled").length / n : 0,
+    errs: ts.filter(t => t.silent_error).length,
+    dups: ts.reduce((a, t) => a + (t.duplicate_effects || 0), 0),
+    ok: n ? ts.filter(t => t.verified).length / n : 0,
+  };
+}
+function tiles(id, s) {
+  const T = (v, l) => `<div class="tile"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  $(id).innerHTML = T(s.n, "tasks") + T(money(s.cost), "total cost") + T(money(s.per), "cost / task (last 20)") +
+    T(Math.round(s.lat) + " ms", "latency (last 20)") + T((100 * s.compiled).toFixed(0) + "%", "served compiled") +
+    T(`${(100 * s.ok).toFixed(0)}% · ${s.errs} · ${s.dups}`, "verified · silent errs · dup effects");
+}
+function line(svg, series) {
+  const W = svg.clientWidth || 600, H = 220, P = 34;
+  const maxN = Math.max(1, ...series.map(s => s.ys.length)), maxY = Math.max(1e-9, ...series.flatMap(s => s.ys));
+  const x = i => P + (W - P - 8) * i / Math.max(1, maxN - 1), y = v => H - 20 - (H - 30) * v / maxY;
+  let g = `<text x="4" y="14" fill="#8b93a1" font-size="11">${maxY >= 1 ? maxY.toFixed(2) : maxY.toFixed(3)}</text>` +
+          `<line x1="${P}" y1="${H - 20}" x2="${W}" y2="${H - 20}" stroke="#2a303a"/>` +
+          `<text x="${P}" y="${H - 4}" fill="#8b93a1" font-size="11">task 0</text><text x="${W - 60}" y="${H - 4}" fill="#8b93a1" font-size="11">task ${maxN}</text>`;
+  for (const s of series) g += `<polyline fill="none" stroke="${s.c}" stroke-width="2" points="${s.ys.map((v, i) => x(i) + "," + y(v)).join(" ")}"/>`;
+  svg.innerHTML = g;
+}
+const cum = ts => { let a = 0; return ts.map(t => a += t.cost_usd || 0); };
+const roll = (ts, k = 10) => ts.map((_, i) => { const w = ts.slice(Math.max(0, i - k + 1), i + 1); return w.reduce((a, t) => a + t.latency_ms, 0) / w.length; });
+function render() {
+  const b = S.base.tasks, j = S.jit.tasks, sb = stats(b), sj = stats(j);
+  $("mode").textContent = S.mode;
+  const r = S.running; $("running").textContent = (r.base || r.jit) ? `running… without: ${r.base} left · with: ${r.jit} left` : "idle";
+  tiles("t-base", sb); tiles("t-jit", sj);
+  $("k-base").innerHTML = b.slice(-160).map(t => `<i class="chip" style="background:${color(t)}"></i>`).join("");
+  $("k-jit").innerHTML = j.slice(-160).map(t => `<i class="chip" style="background:${color(t)}"></i>`).join("");
+  line($("c-cost"), [{ ys: cum(b), c: "var(--base)" }, { ys: cum(j), c: "var(--jit)" }]);
+  line($("c-lat"), [{ ys: roll(b), c: "var(--base)" }, { ys: roll(j), c: "var(--jit)" }]);
+  const A = S.atlas, m = A.last_match;
+  const F = (t, n, d) => `<div class="feat"><b>${t}</b><div class="n">${n}</div><small>${d}</small></div>`;
+  $("atlas").innerHTML =
+    F("$vectorSearch routing", A.vector_routed, m ? `tasks routed to a family by vector index · last: ${m.id} (sim ${m.similarity})` : "tasks routed by vector index") +
+    F("Unique index on effect_key", `${A.effects} / ${A.fenced}`, "side effects journaled / duplicate refunds blocked by the index") +
+    F("Transactions", A.skills.length, `skill versions promoted/demoted atomically · active: ${A.active || "none"}`) +
+    F("Change streams", S.feed.length, "live events pushed to the runtime (hot-swap, recompile triggers)") +
+    F("Time-series collection", A.metrics, "per-task cost / latency / deopt metrics") +
+    F("Aggregation + $merge", A.hot_segments.length, "hot, stable trace signatures materialized by the profiler") +
+    F("Document model", j.length, "whole traces, skills, and deopt frames stored as nested documents") +
+    F("TTL index", A.blocklist, "families in megamorphic cooldown (auto-expire)");
+  $("skills").innerHTML = A.skills.map(s => `<div><span class="status-${s.status}">${s.status}</span> ${s.id}${s.reason ? " · " + s.reason : ""}</div>`).join("") || "<div>none yet</div>";
+  $("feed").innerHTML = S.feed.map(f => `<div>${f.ts} <span class="op">${f.op}</span> ${f.coll}</div>`).join("") || "<div>waiting for events…</div>";
+}
+async function tick() { try { S = await (await fetch("/api/compare/state")).json(); render(); } catch (e) { console.error(e); } }
+async function run(n) { await fetch("/api/compare/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ n }) }); tick(); }
+async function drift(b) { await fetch("/api/compare/drift", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) }); tick(); }
+tick(); setInterval(tick, 2000);
+</script>
+</body>
+</html>
