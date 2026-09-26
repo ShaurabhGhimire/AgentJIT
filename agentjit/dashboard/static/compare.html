@@ -48,10 +48,11 @@ svg { width:100%; height:220px; display:block; }
   <div class="drift">
     <button onclick="drift({currency_mix:0.3})">Drift 1: EUR orders</button>
     <button onclick="drift({refund_returns_pending:0.5})">Drift 2: provider returns "pending"</button>
-    <button onclick="drift({refund_window_days:14})">Drift 3: refund window 30→14 days</button>
-    <button onclick="drift({currency_mix:0,refund_returns_pending:false,refund_window_days:30})">Reset drift</button>
+    <button onclick="drift({refund_window_days:14}, 30)">Drift 3: refund window 30→14 days</button>
+    <button onclick="drift({currency_mix:0,refund_returns_pending:false,refund_window_days:30}, 0)">Reset drift</button>
   </div>
   <span class="badge" id="running"></span>
+  <span class="badge" id="world"></span>
 </header>
 <main>
   <section class="card">
@@ -140,6 +141,12 @@ const roll = (ts, k = 10) => ts.map((_, i) => { const w = ts.slice(Math.max(0, i
 function render() {
   const b = S.base.tasks, j = S.jit.tasks, sb = stats(b), sj = stats(j);
   $("mode").textContent = S.mode;
+  const k = S.jit.knobs, pol = S.jit.policy, on = [];
+  if (k.currency_mix > 0) on.push(`EUR orders ${Math.round(100 * k.currency_mix)}%`);
+  if (k.refund_returns_pending) on.push(`provider "pending" ${k.refund_returns_pending === true ? "on" : Math.round(100 * k.refund_returns_pending) + "%"}`);
+  if (pol.refund_window_days !== 30) on.push(`refund window ${pol.refund_window_days}d`);
+  $("world").textContent = "drift: " + (on.length ? on.join(" · ") : "none");
+  $("world").style.color = on.length ? "var(--warn)" : "";
   const r = S.running; $("running").textContent = (r.base || r.jit) ? `running… without: ${r.base} left · with: ${r.jit} left` : "idle";
   tiles("t-base", sb); tiles("t-jit", sj);
   $("k-base").innerHTML = b.slice(-160).map(t => `<i class="chip" style="background:${color(t)}"></i>`).join("");
@@ -162,7 +169,10 @@ function render() {
 }
 async function tick() { try { S = await (await fetch("/api/compare/state")).json(); render(); } catch (e) { console.error(e); } }
 async function run(n) { await fetch("/api/compare/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ n }) }); tick(); }
-async function drift(b) { await fetch("/api/compare/drift", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) }); tick(); }
+async function drift(b, n = 10) {
+  await fetch("/api/compare/drift", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) });
+  if (n && !(S && (S.running.base || S.running.jit))) await run(n); else tick();
+}
 tick(); setInterval(tick, 2000);
 </script>
 </body>
