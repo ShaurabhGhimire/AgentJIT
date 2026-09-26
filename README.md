@@ -8,8 +8,6 @@ Production agents pay full LLM cost and latency for the thousandth identical tas
 
 Agents get cheaper and faster the longer they run, and every compiled behavior is readable, versioned, tested before promotion and reversible.
 
-The full design is in [`AgentJIT_Project_Architecture.md`](AgentJIT_Project_Architecture.md).
-
 ---
 
 ## How it works
