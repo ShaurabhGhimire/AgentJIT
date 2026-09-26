@@ -216,7 +216,7 @@ The raw request is wrapped in an envelope document (source channel, tenant, raw 
 
 #### Stage 2: Family match
 
-The task text is embedded and matched with `$vectorSearch` against task-family centroids, pre-filtered by tenant and by families with at least one active skill.
+The task text is embedded and matched with `$vectorSearch` against task-family centroids, pre-filtered by tenant and by families with at least one servable skill (active **or probation**: probation skills must receive traffic, since that traffic is the only source of the shadow runs that can activate them).
 
 | Result | Outcome |
 |---|---|
@@ -240,7 +240,7 @@ Deterministic extractors are themselves compiled. In interpreted traces, provena
 
 **Grounding check.** Every extracted value must literally appear in the envelope or be derivable from something that does. A hallucinated but well-formed value (for example, an order ID that appears nowhere in the text) fails grounding and routes the task to the interpreter.
 
-**Agreement check.** A wrong but grounded argument is the one parsing failure nothing downstream catches: if the parser picks the wrong order ID and that order happens to satisfy every guard, the skill acts on the wrong object. Guards verify that the world matches the skill's assumptions; they cannot verify that the skill was pointed at the right object. So for any skill containing an irreversible step, two independent extraction methods must agree. Disagreement routes to the interpreter.
+**Agreement check.** A wrong but grounded argument is the one parsing failure nothing downstream catches: if the parser picks the wrong order ID and that order happens to satisfy every guard, the skill acts on the wrong object. Guards verify that the world matches the skill's assumptions; they cannot verify that the skill was pointed at the right object. So for any skill containing an irreversible step, two independent extraction methods must agree. Disagreement routes to the interpreter. The agreeing pair must exist from day one: a hand-written pattern extractor for the key identifier (for example, an `order_id` regex) paired with the schema-constrained model, or a structured field paired with either. Compiled extractors (8.8) later replace the hand-written pattern; they are not a prerequisite for compiled execution.
 
 #### Stage 4: Task-level guards
 
@@ -249,7 +249,7 @@ Guards come in two kinds, depending on what data they need:
 | Guard kind | Example | Needs | When checked |
 |---|---|---|---|
 | Task-level | `reason in {damaged, not_received, wrong_item}` | Only extracted arguments | During parsing, before any tool call |
-| State | `order.currency in {USD}`, `len(shipments) == 1` | Data from read tools | Inside compiled execution, in the safe zone before the first irreversible step |
+| State | `order['currency'] in ['USD']`, `len(shipments) == 1` | Data from read tools | Inside compiled execution, in the safe zone before the first irreversible step |
 
 Only task-level guards run during parsing, which keeps parsing fast and side-effect-free.
 
@@ -317,7 +317,7 @@ The gateway is the single chokepoint between agents (compiled or interpreted) an
 
 #### Write-ahead protocol (every non-read call)
 
-1. Compute an **effect key**: a hash of execution ID, step, tool, and normalized arguments.
+1. Compute an **effect key**: a hash of execution ID, tool, and normalized arguments. The step number is deliberately excluded: a resuming interpreter numbers its steps differently from the compiled skill it continues, and a key containing the step would never match. An execution keeps one execution ID across a deopt.
 2. Write an **intent record** with that key (unique index; majority write concern).
 3. Make the external call (passing the effect key as an idempotency key where the tool supports one).
 4. Write a **completion record** with the result.
@@ -404,7 +404,9 @@ A restart re-reads the order, sees a refund is due, and issues a second refund. 
 
 ### 7.6 Differential shadow testing
 
-Guards catch drift visible in the values they check. They cannot catch drift invisible to those values. Example: the refund window changes from 30 to 14 days; a 20-day-old order still passes `days_since_delivery <= 30`. Only something that re-reads the policy notices.
+Guards catch drift visible in the values they check. They cannot catch drift invisible to those values. Example: the refund window changes from 30 to 14 days; a 20-day-old order still passes `order['days_since_delivery'] <= 30`. Only something that re-reads the policy notices.
+
+**Where the policy lives.** Business policy (refund window, currency rules) is a document in the world, injected into the interpreter's context at the start of every run and read by the verifier at verification time. It is deliberately *not* a tool the compiled skill calls: if the skill read the policy, the window would become a visible guard input and this class of drift would stop being invisible. The shadow interpreter therefore always sees current policy, and the compiled skill never does.
 
 **Mechanism.** A sampled fraction of compiled executions is also run through the interpreter in a sandbox:
 
@@ -424,7 +426,9 @@ Guards catch drift visible in the values they check. They cannot catch drift inv
 
 (With zero divergences the bound is roughly 3/n, the "rule of three.") To claim a silent-error rate below 1% at 95% confidence, a skill needs about 300 clean shadow runs.
 
-**Sampling schedule.** Probation: every run is shadowed until the bound drops below the promotion threshold. Active: the rate decays but never reaches zero, because residual sampling is the only defense against invisible drift.
+**Sampling schedule.** Probation: every run is shadowed until the bound drops below the promotion threshold. Active: the rate decays but never below a floor (`SHADOW_ACTIVE_MIN_RATE`), because residual sampling is the only defense against invisible drift.
+
+**Activation and demotion use different statistics.** Activation uses the cumulative one-sided upper bound over all of the version's shadow runs. Demotion cannot: after hundreds of clean runs, a handful of new divergences barely moves a cumulative bound, so drift would go undetected for a long time. Instead a skill is demoted when either (a) any divergence is adjudicated against the skill by the hard verifier, which is conclusive evidence on its own, or (b) the one-sided 95% *lower* bound on the divergence rate over the last `SHADOW_WINDOW_RUNS` shadow runs exceeds the active threshold (with a window of 30, five divergences suffice). An *upper* bound over a small window cannot be used: 30 clean runs still give ≈ 9.5%, which would demote every skill.
 
 **Read non-repeatability.** Shadow runs execute slightly later than compiled runs, so live state may differ. Either snapshot read results during the compiled run and replay them to the shadow, or measure and subtract a known false-divergence rate.
 
@@ -524,8 +528,8 @@ Guards are inferred statistically, never written by the LLM.
 | Template | Example |
 |---|---|
 | Equality / constant | `order.status == "delivered"` |
-| Set membership | `order.currency in {USD}` |
-| Numeric range | `days_since_delivery <= 30` |
+| Set membership | `order['currency'] in ['USD']` |
+| Numeric range | `order['days_since_delivery'] <= 30` |
 | Length | `len(shipments) == 1` |
 | Ordering between variables | `amount <= order.total` |
 | Simple linear relation | `refund.amount == order.total - order.discount` |
@@ -650,7 +654,7 @@ erDiagram
 | Collection | Key fields | Indexes / special features |
 |---|---|---|
 | `task_envelopes` | `tenant`, `source`, `raw_text`, `structured`, `ts` | `{tenant, ts}` |
-| `task_families` | `family_id`, `centroid`, `active_skill` | Vector index on `centroid` with filters `tenant`, `has_active_skill` |
+| `task_families` | `family_id`, `centroid`, `active_skill` | Vector index on `centroid` with filters `tenant`, `has_servable_skill` (active or probation) |
 | `dispatch_decisions` | `envelope_id`, `family`, `skill`, `args`, `route`, `shadow` | `{family, ts}` |
 | `traces` | `family`, `mode`, `signature`, `steps[]`, `verified_success`, `cost_usd` | `{family, signature, ts}` |
 | `hot_segments` | `family`, `signature`, `count`, `stability` | Materialized by `$merge` |
@@ -681,8 +685,8 @@ erDiagram
   ],
   "entry_guards": [
     { "expr": "len(shipments) == 1", "support": 212 },
-    { "expr": "order.currency in ['USD']", "support": 212 },
-    { "expr": "days_since_delivery <= 30", "support": 212 },
+    { "expr": "order['currency'] in ['USD']", "support": 212 },
+    { "expr": "order['days_since_delivery'] <= 30", "support": 212 },
     { "expr": "0 < amount <= order.total", "support": 212 }
   ],
   "steps": [
@@ -729,7 +733,7 @@ db.skills.aggregate([
       queryVector: taskEmbedding,
       numCandidates: 100,
       limit: 3,
-      filter: { status: "active", family: familyId }
+      filter: { status: { $in: ["active", "probation"] }, family: familyId }
   } },
   { $project: { _id: 1, task_guards: 1, input_signature: 1,
                 score: { $meta: "vectorSearchScore" } } }
@@ -806,7 +810,7 @@ Once the divergence bound is below threshold, most refund requests run compiled.
 | A customer pays in EUR | Hoisted guard `currency in {USD}` | Cheap deopt before any write; LLM handles it | Entry/state guard, safe zone |
 | An order ships in two parcels | Hoisted guard `len(shipments) == 1` | Cheap deopt; after enough continuations, recompile adds a branch | Polymorphic recompile |
 | Provider returns `pending` | Residual postcondition after refund | On-stack deopt; LLM resumes at step 5, gateway fences a repeated refund | OSR across side effects |
-| Refund window changes from 30 to 14 days | Nothing: every guard still passes | Shadow interpreter reads current policy and disagrees; bound rises; skill demoted and recompiled | Invisible drift, shadow testing |
+| Refund window changes from 30 to 14 days | Nothing: every guard still passes | Shadow interpreter sees current policy and disagrees; the verifier confirms the divergence; skill demoted and recompiled | Invisible drift, shadow testing |
 
 The last row is the most important experiment. It is where a naive system fails silently, and where the difference between "self-improving" and "self-degrading" is decided.
 
@@ -944,7 +948,7 @@ A sandboxed refund (or invoice-matching, or delivery-exception) environment back
 |---|---|---|
 | A | Interpreted only | Baseline cost, latency, success |
 | B | Plan/semantic cache, no guards | Whether guards matter at all |
-| C | AgentJIT with restart-on-deopt | Value of on-stack deopt and the journal |
+| C | AgentJIT with restart-on-deopt (new execution ID, so the journal cannot fence) | Value of on-stack deopt and the journal |
 | D | AgentJIT with no shadow testing | Value of shadow testing (silent error rate) |
 | E | Full AgentJIT | Complete system |
 
@@ -969,7 +973,7 @@ Inject the four drift events from section 11 at fixed points in a task stream, i
 
 1. Arm E cost per task is well below arm A after warm-up, net of shadow and parsing cost.
 2. Arm E verified success is not lower than arm A.
-3. Arm C shows duplicate side effects on the `pending` drift; arm E shows zero.
+3. Arm C shows duplicate side effects on the `pending` drift; arm E shows zero. This depends on a stated property of the environment: `get_order` does not expose refund history, as in many real order systems, so a restarted agent cannot see the earlier pending refund unless it thinks to call `payments.list_refunds`. State this in the pitch rather than leaving it implicit.
 4. Arm D misses the policy drift (silent errors accumulate); arm E detects it and demotes the skill.
 5. The billing-dispute family is correctly left interpreted.
 
@@ -1068,7 +1072,7 @@ Stretch:
 | 0:50–1:15 | Stream tasks: cost-per-task curve drops; compiled share rises |
 | 1:15–1:40 | Drift 1 (currency): cheap deopt in the safe zone |
 | 1:40–2:10 | Drift 2 (provider returns `pending`): on-stack deopt; show the frame; show the fenced repeat refund; show arm C creating a duplicate |
-| 2:10–2:40 | Drift 3 (policy tightened): no guard fires; shadow testing catches it; bound breaches; skill demoted and recompiled |
+| 2:10–2:40 | Drift 3 (policy tightened): no guard fires; shadow testing catches it; the verifier confirms the divergence; skill demoted live. The recompile (fresh traces, codegen, replay, probation) takes longer than the beat, so show it from a recording |
 | 2:40–3:00 | Close: agents that get cheaper as they run, with measured silent-error bounds and no duplicate side effects |
 
 ### 16.6 Anticipated judge questions

@@ -75,9 +75,8 @@ agentjit/
 
 ### Git workflow
 
-- Branches: `saurav/<topic>`, `susan/<topic>`. Never commit to `main` directly.
-- Merge to `main` at least twice a day, and always before a sync gate.
-- `common/`, `docs/skill_abi.md`, `fixtures/` → **PR + the other person's ack**, always.
+- **Changed 2026-09-26:** we commit and push straight to `main` (pull with rebase first) so both of us see every change immediately. Topic branches are optional.
+- `common/`, `docs/skill_abi.md`, `fixtures/` → announce the change in chat, and explain it in the commit message.
 - Everything else in your own column → merge freely.
 - Commit generated skills in `skills/` so the other person can run them without rerunning codegen.
 
@@ -117,7 +116,7 @@ Types both halves pass across the seam. Write them as pydantic models with the e
 
 - [ ] **Entry point.** How does the executor invoke a generated skill? Agreed: `def run(ctx: SkillContext, args: dict) -> dict`
 - [ ] **`pc` numbering.** 1-indexed, one `pc` per `steps[]` entry, and the generated code must `ctx.step(pc)` before each call. The deopt frame names `pc` — codegen and executor must number identically or every frame is wrong.
-- [ ] **Guard namespace.** A guard is a string expression (`order.currency in ['USD']`, `len(shipments) == 1`). Pin down: who binds `order`, `shipments`, `amount`? Agreed: the executor keeps a dict of named step results; codegen declares the binding name per step; guards evaluate against that dict in a restricted eval.
+- [ ] **Guard namespace.** A guard is a string expression (`order['currency'] in ['USD']`, `len(shipments) == 1`; subscript access, since bindings are plain dicts). Pin down: who binds `order`, `shipments`, `amount`? Agreed: the executor keeps a dict of named step results; codegen declares the binding name per step; guards evaluate against that dict in a restricted eval.
 - [ ] **Hole invocation.** `ctx.hole("email_body", inputs={...}) -> validated value`; executor owns the model call, schema validation, and the `checks[]`.
 - [ ] **Tool calls.** Generated code never imports the mock API. It calls `ctx.call(tool_name, **args)` and the gateway does the rest.
 - [ ] **`common/tools.py`** — the registry table, needed by *both* (Saurav's gateway classifies with it; Susan's hoisting computes the point of no return from it):
@@ -136,13 +135,13 @@ Types both halves pass across the seam. Write them as pydantic models with the e
 
 Hand-written traces in the exact §8.1 schema. This is what lets Susan build the entire compile plane before the runtime produces a single real trace.
 
-- [ ] ~20 traces of the modal refund signature `get_order>get_shipments>refund>ticket_update>email_send`, with varied order IDs, charge IDs, amounts, emails
+- [ ] ~20 traces of the modal refund signature `get_order>get_shipments>payments.refund>tickets.update>email.send` (registry tool names; `compute_amount` is a pure op and not part of the signature), with varied order IDs, charge IDs, amounts, emails
 - [ ] Every step carries real `provenance` (`step1.result.charge_id`, `input.order_id`) — the generalizer is worthless without it
-- [ ] **3–4 deliberately divergent traces**, or guard inference has nothing to separate:
-  - one EUR order → gives set-membership `currency in ['USD']` something to exclude
-  - one two-shipment order that takes a different path → feeds the divergence stump (§8.5)
-  - one where the refund returns `pending` → the residual-guard case
-  - one 45-day-old order → gives the range invariant a boundary
+- [ ] **3–4 deliberately divergent traces**, each on its **own path** (a divergent trace that shares the modal signature and succeeds lands in the compile source set and widens the guards instead of bounding them):
+  - one EUR order → escalated to finance, no refund
+  - one two-shipment order → escalated, no refund; feeds the divergence stump (§8.5)
+  - one where the refund returns `pending` → agent calls `payments.list_refunds`, ticket `awaiting_refund`
+  - one 45-day-old order → denial (verified success: denying is correct under policy); gives the range invariant a boundary
 - [ ] A `make fixtures` target that loads them into `traces`
 
 ### 2.5 `fixtures/skills/refund_standard@v0` — 30 min, **owner Saurav**, Susan reviews
@@ -171,17 +170,18 @@ Build order §16.3 items 1–3. Everything downstream depends on hard pass/fail,
   - [ ] `currency_mix` → inject EUR orders
   - [ ] `split_shipment_rate` → orders with 2 parcels
   - [ ] `refund_returns_pending` → provider returns `pending` not `succeeded`
-  - [ ] `refund_window_days` → 30 → 14, the invisible drift
+  - [ ] `refund_window_days` → 30 → 14, the invisible drift. Lives in the **policy document**, which the interpreter gets in its context and the verifier reads. Never exposed as a tool the compiled skill calls
 - [ ] Every write endpoint accepts an `idempotency_key`
 
 **T1.2 Hard verifier** (`runtime/verifier.py`) — signature agreed in 2.3
-- [ ] Given an envelope, compute expected end state: refund exists with right amount, ticket resolved, exactly one outbox message
+- [ ] Given an envelope, compute expected end state **under the current policy document** (read at verification time): refund exists with right amount, ticket resolved, exactly one outbox message; or, for a denial / escalation, no refund, ticket closed / escalated, one notice
+- [ ] Pending is a correct outcome: refund `pending`, ticket `awaiting_refund`, one pending notice. Otherwise the §6 money-shot run fails verification
 - [ ] Return `VerifierResult(ok, reason)` — the reason string feeds shadow adjudication and the eval table
 - [ ] **Counts duplicate effects** — this is success criterion §14.5.3 and the arm C money shot
 
 **T1.3 Tool gateway + effect journal** (`runtime/gateway.py`, `journal.py`) — §7.4, the correctness backbone
 - [ ] Effect-class lookup from `common/tools.py`; refuse to call an unregistered tool
-- [ ] `effect_key = hash(exec_id, pc, tool, normalized_args)`
+- [ ] `effect_key = hash(exec_id, tool, normalized_args)`: no `pc`, since the resuming interpreter numbers steps differently (`docs/skill_abi.md` §7). A deopt resume keeps the same `exec_id`
 - [ ] Write-ahead protocol: intent record → external call (passing `effect_key` as idempotency key) → completion record
 - [ ] Unique index on `effect_key`, majority write concern
 - [ ] **Argument normalization** before hashing (`49` ≡ `49.00`, email casing, whitespace)
@@ -191,7 +191,8 @@ Build order §16.3 items 1–3. Everything downstream depends on hard pass/fail,
 - [ ] `mode="shadow"` — stub all writes, record intended calls, return plausible results. Susan's shadow tester calls this.
 
 **T1.4 LLM interpreter + trace recorder** (`runtime/interpreter.py`, `tracer.py`) — §7.3, §8.1
-- [ ] Minimal agent loop: tools described from the registry, all calls through the gateway
+- [ ] Minimal agent loop: tools described from the registry (pure ops such as `compute_amount` included, so computed values get provenance), all calls through the gateway
+- [ ] Current policy document injected into the system context on every run
 - [ ] Emits a §8.1-shaped `Trace` per run: signature, steps, cost, latency
 - [ ] **Provenance capture** — match each argument value against values seen earlier in the same trace; tag `input.x` or `stepN.result.y`. Susan's generalizer is dead without this; get it right, not approximately right.
 - [ ] `llm_span` summaries per reasoning step
@@ -203,12 +204,13 @@ Build order §16.3 items 4, 7. This is the contribution (§5), so it gets the mo
 
 **T2.1 Task parser** (`runtime/parser.py`) — §7.1 stages 1–4
 - [ ] Stage 1 envelope: persist to `task_envelopes` before any decision
-- [ ] Stage 2 family match: embed the text, `$vectorSearch` against `task_families.centroid` filtered by tenant + `has_active_skill` (Susan owns the index and the centroids)
+- [ ] Stage 2 family match: embed the text, `$vectorSearch` against `task_families.centroid` filtered by tenant + `has_servable_skill` (active **or probation**, else a probation skill never gets traffic and never activates; Susan owns the index and the centroids)
   - [ ] below-threshold similarity → interpreter
   - [ ] top-two margin too small → interpreter
 - [ ] Stage 3 extraction ladder, stop at first success: structured field → learned pattern → schema-constrained small model
 - [ ] **Grounding check:** every extracted value must literally appear in the envelope or derive from something that does
 - [ ] **Agreement check:** for any skill with an irreversible step, two independent extraction methods must agree; disagreement → interpreter
+- [ ] **Hand-write the `order_id` pattern extractor** (regex + context). It is the second method for agreement. Without it, cutting §8.8 would route every task interpreted
 - [ ] Stage 4: evaluate task-level guards
 - [ ] Track parsing cost as its own line item — §15 lists "parsing cost eats savings" as a named risk and §14.3 requires it separately
 
@@ -277,7 +279,7 @@ You can do all of P1 against `fixtures/traces/` without waiting for Saurav's run
 
 **T1.1 Atlas schema and indexes** (`scripts/seed_atlas.py`) — §10.2, §10.4
 - [ ] Create all 12 collections from the §10.2 table
-- [ ] `task_families` vector index on `centroid`, filters `tenant` + `has_active_skill`
+- [ ] `task_families` vector index on `centroid`, filters `tenant` + `has_servable_skill`
 - [ ] `skills` vector index `skill_embedding` on `embedding`, filters `status` + `family`
 - [ ] Unique index `effect_journal.effect_key` — hand to Saurav in P1, he needs it immediately
 - [ ] Unique index `hot_segments {family, signature}` (required by the `$merge` `on` clause)
@@ -289,7 +291,7 @@ You can do all of P1 against `fixtures/traces/` without waiting for Saurav's run
 
 **T1.2 Family centroids and embeddings**
 - [ ] Embed the fixture envelopes, cluster, compute the `refund_request` centroid
-- [ ] Populate `task_families`, maintain `has_active_skill`
+- [ ] Populate `task_families`, maintain `has_servable_skill` (true while any version is active or in probation)
 - [ ] Hand Saurav a `match_family(text) -> (family_id, similarity, margin)` helper for his parser
 
 **T1.3 Profiler** (`compileplane/profiler.py`) — §8.2
@@ -375,7 +377,7 @@ You can do all of P1 against `fixtures/traces/` without waiting for Saurav's run
 **T4.1 Ablation harness** (`eval/`) — §14.2
 - [ ] Arm A: interpreted only
 - [ ] Arm B: plan cache, no guards
-- [ ] Arm C: AgentJIT with **restart**-on-deopt (this is the arm that produces duplicate refunds)
+- [ ] Arm C: AgentJIT with **restart**-on-deopt under a **new `exec_id`** (this is the arm that produces duplicate refunds; it relies on `get_order` not exposing refund history, stated in the pitch)
 - [ ] Arm D: AgentJIT with no shadow testing (misses the policy drift)
 - [ ] Arm E: full AgentJIT
 - [ ] Same seed, same drift schedule, same task order for every arm
@@ -473,7 +475,7 @@ Both columns complete first. Then we sit down together and run the whole system 
 - [ ] 0:50–1:15 — stream tasks; cost-per-task drops, compiled share rises
 - [ ] 1:15–1:40 — **flip `currency_mix`** → cheap safe-zone deopt, nothing written
 - [ ] 1:40–2:10 — **flip `refund_returns_pending`** → on-stack deopt; show the frame; show the fenced repeat; show arm C's duplicate refund side by side
-- [ ] 2:10–2:40 — **flip `refund_window_days` 30 → 14** → no guard fires; shadow catches it; bound breaches; skill demoted and recompiled
+- [ ] 2:10–2:40 — **flip `refund_window_days` 30 → 14** → no guard fires; shadow catches it; verifier confirms; skill demoted live; recompile shown from the recording
 - [ ] Have a recorded fallback video of each beat
 
 **T7.3 Judge prep** — rehearse the §16.6 answers, especially "isn't this just caching?" and "where is the recursion?"
