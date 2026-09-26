@@ -16,9 +16,9 @@ class TaskEnvelope(BaseModel):
 
 
 class TraceStep(BaseModel):
-    i: int  # program counter; matches skill step pc
-    tool: Optional[str] = None
-    op: Optional[str] = None  # for pure steps with no external call
+    i: int  # 1-indexed; one per tool or pure-op call, so it matches skill step pc
+    tool: Optional[str] = None  # set for read / write tools
+    op: Optional[str] = None  # set instead of tool for pure ops (registry effect_class "pure")
     args: dict[str, Any] = Field(default_factory=dict)
     result: Optional[Any] = None  # dict for most tools; list for get_shipments
     result_digest: str
@@ -31,12 +31,20 @@ class TraceStep(BaseModel):
 
 class Trace(BaseModel):
     trace_id: str
+    exec_id: Optional[str] = None  # links a trace to its journal entries and deopt event
+    envelope_id: Optional[str] = None  # what verify(envelope_id) is called with
     family: str
-    mode: Literal["interpreted", "compiled"]
+    # "shadow" = interpreter run with stubbed writes; the profiler must never read these
+    mode: Literal["interpreted", "compiled", "shadow"]
+    # Registry tool names of the non-pure steps joined by ">", e.g.
+    # "get_order>get_shipments>payments.refund>tickets.update>email.send".
+    # The profiler's grouping key adds each argument's provenance pattern on top of this.
     signature: str
     steps: list[TraceStep]
     verified_success: bool
     cost_usd: float
+    deopt_event_id: Optional[str] = None  # set on a deopt continuation trace
+    ts: datetime = Field(default_factory=datetime.utcnow)
 
 
 class Guard(BaseModel):
@@ -147,7 +155,7 @@ class TaskGuardResult(BaseModel):
 
 class DispatchDecision(BaseModel):
     envelope_id: str
-    family: FamilyMatch
+    family: Optional[FamilyMatch] = None  # None when no family matched (routes interpreted)
     skill: Optional[str] = None
     args: dict[str, ArgDecision] = Field(default_factory=dict)
     task_guards: TaskGuardResult
