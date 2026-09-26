@@ -410,6 +410,8 @@ We are **not** testing as we go. Each of us builds our column straight through; 
 
 Both columns complete first. Then we sit down together and run the whole system once, top to bottom. Work down this list in order; each item assumes the ones above it pass.
 
+**Budget honestly.** Two hours is thin for a first full integration of a system neither half has exercised against the other. The compression is deliberate — we'd rather spend the time building — but if T6.3 or T6.5 goes red we are cutting from §8, not debugging past hour 36. If either of us finishes a column early, pull this phase forward rather than starting something new.
+
 **T6.1 Wire-up**
 - [ ] Merge both branches to `main`; point both of us at one shared collection prefix
 - [ ] `scripts/seed_atlas.py` against a clean DB; confirm every index and the time series collection exist
