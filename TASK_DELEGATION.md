@@ -67,7 +67,7 @@ agentjit/
   fixtures/          SHARED, written in Phase 0
   scripts/
     seed_atlas.py      collections + indexes          SUSAN
-    seed_demo.py       pre-warmed demo state          SHARED, Phase 5
+    seed_demo.py       pre-warmed demo state          SAURAV, P4
     run_stream.py      task stream generator          SAURAV
   docs/
     skill_abi.md       THE hard contract (see 2.3)  SHARED, Phase 0
@@ -240,7 +240,7 @@ Build order §16.3 items 4, 7. This is the contribution (§5), so it gets the mo
 - [ ] **The money shot — build for this:** with `refund_returns_pending` on, a compiled run deopts at pc=4, the resuming LLM re-issues the refund, the gateway fences it, and the verifier reports **zero duplicate refunds**
 - [ ] The cheap path: an EUR order deopts in the safe zone with no committed effects
 
-### P3 · Stream, dashboard, drift (hours 18–30, overlaps integration)
+### P3 · Stream, dashboard, drift (hours 18–28)
 
 **T3.1 Task stream** (`scripts/run_stream.py`)
 - [ ] Generate a reproducible task stream from a fixed seed
@@ -255,7 +255,16 @@ Build order §16.3 items 4, 7. This is the contribution (§5), so it gets the mo
 - [ ] Current divergence bound per skill, with its probation/active state
 - [ ] Live-updating during the demo (poll, or a change-stream socket)
 
-### P4 · Buffer (hours 30–34)
+### P4 · Demo seed and buffer (hours 28–32)
+
+**T4.1 Pre-warmed demo state** (`scripts/seed_demo.py`) — §16.3 item 10. This is a build task, not rehearsal, and it seeds the same collections the task stream writes.
+- [ ] Loads Atlas with an already-**active** `refund_standard@v3`, its guards and support counts
+- [ ] Accumulated interpreted traces so the cost curve has history to show
+- [ ] A filled shadow counter so the bound is already below threshold
+- [ ] Drift knobs off, ready to flip live
+- [ ] One command, idempotent, under 30 seconds. **We never warm up live on stage.**
+
+**T4.2 Buffer**
 - [ ] Slack for whatever ran over. Then join the joint end-to-end phase (§6).
 
 ---
@@ -361,7 +370,7 @@ You can do all of P1 against `fixtures/traces/` without waiting for Saurav's run
 - [ ] Branch count above k → mark family **megamorphic**, insert into the TTL blocklist, stay interpreted
 - [ ] New version enters probation, does not go straight to active
 
-### P4 · Evaluation (hours 28–34)
+### P4 · Evaluation (hours 28–32)
 
 **T4.1 Ablation harness** (`eval/`) — §14.2
 - [ ] Arm A: interpreted only
@@ -396,9 +405,11 @@ We are **not** testing as we go. Each of us builds our column straight through; 
 | **H3** | ~hour 18 | First generated skill in `skills/` (code + doc + hoisted guards) | Susan → Saurav |
 | **H4** | ~hour 18 | `should_shadow(skill)` + `verify(envelope_id)` wired both ways | both ways |
 | **H5** | ~hour 28 | Metrics written to the `metrics` time series collection | Susan → Saurav (dashboard) |
-| **H6** | ~hour 34 | Both columns feature-complete → start §6 | both ways |
+| **H6** | ~hour 32 | Both columns feature-complete → start §6 | both ways |
 
-**The one thing worth eyeballing early, before H3.** The skill ABI is where the two columns physically meet: Susan's codegen emits the code, Saurav's executor runs it. If `pc` numbering or guard bindings disagree there, nothing in §6 will work and it will be hour 34 when we find out. So the moment codegen emits its first file, Saurav loads it into the executor once and we look at it together. That is a five-minute glance, not a test pass.
+**At H2, glance at the trace shape.** Susan opens three of Saurav's real traces and confirms the `provenance` strings and `effect_class` values match the fixture shape *before* she deletes her fixtures. If his tracer emits `step_1.result.charge_id` where the fixtures say `step1.result.charge_id`, her generalizer keeps passing on fixtures and then quietly turns every parameter into a hole, and we don't find out until §6. Five-minute glance, not a test pass.
+
+**The other thing worth eyeballing early, before H3.** The skill ABI is where the two columns physically meet: Susan's codegen emits the code, Saurav's executor runs it. If `pc` numbering or guard bindings disagree there, nothing in §6 will work and it will be hour 32 when we find out. So the moment codegen emits its first file, Saurav loads it into the executor once and we look at it together. That is a five-minute glance, not a test pass.
 
 ### Contract change rule
 
@@ -406,11 +417,11 @@ We are **not** testing as we go. Each of us builds our column straight through; 
 
 ---
 
-## 6. End-to-end testing — joint, after both tracks are done (hours 34–36)
+## 6. End-to-end testing — joint, after both tracks are done (hours 32–35)
 
 Both columns complete first. Then we sit down together and run the whole system once, top to bottom. Work down this list in order; each item assumes the ones above it pass.
 
-**Budget honestly.** Two hours is thin for a first full integration of a system neither half has exercised against the other. The compression is deliberate — we'd rather spend the time building — but if T6.3 or T6.5 goes red we are cutting from §8, not debugging past hour 36. If either of us finishes a column early, pull this phase forward rather than starting something new.
+**Budget honestly.** Two hours is thin for a first full integration of a system neither half has exercised against the other. The compression is deliberate — we'd rather spend the time building — but if T6.3 or T6.5 goes red we are cutting from §8, not debugging into the demo slot. If either of us finishes a column early, pull this phase forward rather than starting something new.
 
 **T6.1 Wire-up**
 - [ ] Merge both branches to `main`; point both of us at one shared collection prefix
@@ -450,16 +461,12 @@ Both columns complete first. Then we sit down together and run the whole system 
 
 ---
 
-## 7. Demo (both, once §6 is green)
+## 7. Demo (both, hours 35–36)
 
 §16.5 is the deliverable. Each beat needs both halves working, so it is owned jointly.
 
-**T7.1 Pre-warmed state** (`scripts/seed_demo.py`) — §16.3 item 10, **build this before rehearsing**
-- [ ] Loads Atlas with an already-**active** `refund_standard@v3`, its guards and support counts
-- [ ] Accumulated interpreted traces so the cost curve has history to show
-- [ ] A filled shadow counter so the bound is already below threshold
-- [ ] Drift knobs set to off, ready to flip live
-- [ ] One command, idempotent, under 30 seconds. **Never warm up live on stage.**
+**T7.1 Stage state** — `scripts/seed_demo.py` was built in Saurav's P4
+- [ ] Run it against a clean DB and confirm the dashboard opens onto a warm, active skill
 
 **T7.2 The four beats**
 - [ ] 0:20–0:50 — show the compiled skill as readable code, guards with support counts
