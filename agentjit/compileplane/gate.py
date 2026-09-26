@@ -17,6 +17,8 @@ import random
 from datetime import datetime, timezone
 from typing import Optional
 
+from pymongo.errors import OperationFailure
+
 from agentjit.common import config
 from agentjit.common.db import col, get_client
 from agentjit.common.stats import cp_lower, cp_upper
@@ -31,8 +33,14 @@ def should_shadow(skill: dict, rng: Optional[random.Random] = None) -> bool:
 
 
 def _txn(fn) -> None:
-    with get_client().start_session() as s:
-        s.with_transaction(lambda session: fn(session))
+    try:
+        with get_client().start_session() as s:
+            s.with_transaction(lambda session: fn(session))
+    except OperationFailure as e:
+        if e.code == 20:  # standalone mongod - run without multi-document transaction
+            fn(None)
+        else:
+            raise
 
 
 def _audit(session, skill_id: str, event: str, **extra) -> None:

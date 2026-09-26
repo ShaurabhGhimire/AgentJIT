@@ -45,8 +45,14 @@ def test_v0_residual_guard_fires_after_the_refund(rng, monkeypatch):
 
 
 def test_watcher_resumes_from_stored_token(rng):
-    from agentjit.common.db import col
+    from pymongo.errors import OperationFailure
+    from agentjit.common.db import col, get_client
     from agentjit.compileplane import watchers
+    try:
+        get_client().admin.command("replSetGetStatus")
+    except OperationFailure:
+        import pytest
+        pytest.skip("change streams require a replica set")
     col("shadow_runs").insert_one({"skill": "x", "diverged": False})
     import threading
     t = threading.Thread(target=watchers.watch, args=("shadows",), kwargs={"max_events": 1})

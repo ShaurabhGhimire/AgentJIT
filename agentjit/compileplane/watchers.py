@@ -62,7 +62,12 @@ def watch(name: str, stop: Optional[threading.Event] = None, max_events: Optiona
     kwargs = {"full_document": "updateLookup"}
     if state.get("resume_token"):
         kwargs["resume_after"] = state["resume_token"]
-    with col(collection).watch(pipeline, **kwargs) as stream:
+    try:
+        ctx = col(collection).watch(pipeline, **kwargs)
+    except PyMongoError as e:
+        log.warning("change streams unavailable for '%s': %s", name, e)
+        return 0
+    with ctx as stream:
         while not (stop and stop.is_set()):
             change = stream.try_next()
             if change is None:
