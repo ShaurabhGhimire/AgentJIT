@@ -29,7 +29,7 @@ SHADOW_WINDOW_RUNS: int = int(os.getenv("SHADOW_WINDOW_RUNS", "30"))
 # Active skills decay toward this shadow rate and never below it.
 SHADOW_ACTIVE_MIN_RATE: float = float(os.getenv("SHADOW_ACTIVE_MIN_RATE", "0.10"))
 # Active shadow rate = max(MIN_RATE, 1 / (1 + active_runs * SHADOW_DECAY))
-SHADOW_DECAY: float = float(os.getenv("SHADOW_DECAY", "0.05"))
+SHADOW_DECAY: float = float(os.getenv("SHADOW_DECAY", "0.3"))
 # Probation gives up after this many shadow runs without reaching the threshold.
 PROBATION_BUDGET_RUNS: int = int(os.getenv("PROBATION_BUDGET_RUNS", "400"))
 

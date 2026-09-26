@@ -52,7 +52,8 @@ def make_envelope(rng: random.Random, index: int) -> dict:
 
 def run(n: int, seed: int, handle: Callable[[dict, random.Random], dict],
         schedule: Optional[list[tuple[int, dict, str]]] = None,
-        on_task: Optional[Callable[[int, dict], None]] = None, start: int = 0) -> list[dict]:
+        on_task: Optional[Callable[[int, dict], None]] = None, start: int = 0,
+        until: Optional[Callable[[], bool]] = None) -> list[dict]:
     """Two RNGs: one for the world (orders, texts), one for routing, so arms see identical worlds."""
     world_rng = random.Random(seed)
     route_rng = random.Random(seed + 1)
@@ -68,4 +69,6 @@ def run(n: int, seed: int, handle: Callable[[dict, random.Random], dict],
         out.append(rec)
         if on_task:
             on_task(i, rec)
+        if until is not None and until():
+            break
     return out
