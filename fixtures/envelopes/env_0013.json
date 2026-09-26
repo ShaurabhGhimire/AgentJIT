@@ -1,0 +1,10 @@
+{
+  "envelope_id": "env_0013",
+  "tenant": "acme",
+  "source": "webhook",
+  "raw_text": "Hi, my order M4301 arrived damaged. Can I get a refund please?",
+  "structured": {
+    "ticket_id": "TKT-113",
+    "customer_email": "ava@tech.io"
+  }
+}

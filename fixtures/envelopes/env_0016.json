@@ -1,0 +1,10 @@
+{
+  "envelope_id": "env_0016",
+  "tenant": "acme",
+  "source": "webhook",
+  "raw_text": "Hi, my order P7634 arrived damaged. Can I get a refund please?",
+  "structured": {
+    "ticket_id": "TKT-116",
+    "customer_email": "dan@web.com"
+  }
+}

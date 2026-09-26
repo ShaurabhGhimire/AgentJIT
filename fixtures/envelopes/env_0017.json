@@ -1,0 +1,10 @@
+{
+  "envelope_id": "env_0017",
+  "tenant": "acme",
+  "source": "webhook",
+  "raw_text": "Hi, my order Q8745 arrived damaged. Can I get a refund please?",
+  "structured": {
+    "ticket_id": "TKT-117",
+    "customer_email": "hans@eu.com"
+  }
+}

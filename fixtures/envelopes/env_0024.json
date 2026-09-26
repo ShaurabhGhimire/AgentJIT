@@ -1,0 +1,10 @@
+{
+  "envelope_id": "env_0024",
+  "tenant": "acme",
+  "source": "webhook",
+  "raw_text": "Hi, my order U2104 arrived damaged. Can I get a refund please?",
+  "structured": {
+    "ticket_id": "TKT-124",
+    "customer_email": "tom@web.io"
+  }
+}

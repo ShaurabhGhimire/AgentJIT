@@ -1,5 +1,6 @@
 {
   "trace_id": "tr_0005",
+  "envelope_id": "env_0005",
   "family": "refund_request",
   "mode": "interpreted",
   "signature": "get_order>get_shipments>payments.refund>tickets.update>email.send",
@@ -7,64 +8,136 @@
     {
       "i": 1,
       "tool": "get_order",
-      "args": {"order_id": "E5523"},
+      "args": {
+        "order_id": "E5523"
+      },
       "result": {
-        "order_id": "E5523", "charge_id": "ch_38", "total": 230.00,
-        "currency": "USD", "status": "delivered", "customer_email": "priya@biz.co",
-        "ticket_id": "TKT-105", "days_since_delivery": 1, "reason": "not_received"
+        "order_id": "E5523",
+        "charge_id": "ch_38",
+        "total": 230.0,
+        "currency": "USD",
+        "status": "delivered",
+        "customer_email": "priya@biz.co",
+        "ticket_id": "TKT-105",
+        "days_since_delivery": 1,
+        "reason": "not_received"
       },
       "result_digest": "a1b2c3d4e5f60005",
-      "provenance": {"order_id": "input.order_id"},
-      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 15
+      "provenance": {
+        "order_id": "input.order_id"
+      },
+      "effect_class": "read",
+      "llm_span": null,
+      "cost": 0.0,
+      "latency": 15
     },
     {
       "i": 2,
       "tool": "get_shipments",
-      "args": {"order_id": "E5523"},
-      "result": [{"shipment_id": "SHP-105", "tracking": "9405511899223005050", "status": "delivered", "delivered_at": "2026-09-25T08:30:00Z"}],
+      "args": {
+        "order_id": "E5523"
+      },
+      "result": [
+        {
+          "shipment_id": "SHP-105",
+          "tracking": "9405511899223005050",
+          "status": "delivered",
+          "delivered_at": "2026-09-25T08:30:00Z"
+        }
+      ],
       "result_digest": "b2c3d4e5f6a70005",
-      "provenance": {"order_id": "step1.result.order_id"},
-      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 8
+      "provenance": {
+        "order_id": "step1.result.order_id"
+      },
+      "effect_class": "read",
+      "llm_span": null,
+      "cost": 0.0,
+      "latency": 8
     },
     {
       "i": 3,
       "op": "compute_amount",
-      "args": {"total": 230.00},
-      "result": {"amount": 230.00},
+      "args": {
+        "total": 230.0
+      },
+      "result": {
+        "amount": 230.0
+      },
       "result_digest": "c3d4e5f6a7b80005",
-      "provenance": {"total": "step1.result.total"},
-      "effect_class": "pure", "llm_span": null, "cost": 0.0, "latency": 0
+      "provenance": {
+        "total": "step1.result.total"
+      },
+      "effect_class": "pure",
+      "llm_span": null,
+      "cost": 0.0,
+      "latency": 0
     },
     {
       "i": 4,
       "tool": "payments.refund",
-      "args": {"charge_id": "ch_38", "amount": 230.00},
-      "result": {"refund_id": "ref_005", "charge_id": "ch_38", "amount": 230.00, "status": "succeeded", "created_at": "2026-09-26T10:04:00Z"},
+      "args": {
+        "charge_id": "ch_38",
+        "amount": 230.0
+      },
+      "result": {
+        "refund_id": "ref_005",
+        "charge_id": "ch_38",
+        "amount": 230.0,
+        "status": "succeeded",
+        "created_at": "2026-09-26T10:04:00Z"
+      },
       "result_digest": "d4e5f6a7b8c90005",
-      "provenance": {"charge_id": "step1.result.charge_id", "amount": "step3.result.amount"},
+      "provenance": {
+        "charge_id": "step1.result.charge_id",
+        "amount": "step3.result.amount"
+      },
       "effect_class": "irreversible",
       "llm_span": "Issuing refund of $230.00 to charge ch_38 for order E5523",
-      "cost": 0.010, "latency": 450
+      "cost": 0.01,
+      "latency": 450
     },
     {
       "i": 5,
       "tool": "tickets.update",
-      "args": {"ticket_id": "TKT-105", "status": "resolved"},
-      "result": {"ticket_id": "TKT-105", "status": "resolved", "updated_at": "2026-09-26T10:04:01Z"},
+      "args": {
+        "ticket_id": "TKT-105",
+        "status": "resolved"
+      },
+      "result": {
+        "ticket_id": "TKT-105",
+        "status": "resolved",
+        "updated_at": "2026-09-26T10:04:01Z"
+      },
       "result_digest": "e5f6a7b8c9d00005",
-      "provenance": {"ticket_id": "step1.result.ticket_id"},
-      "effect_class": "idempotent", "llm_span": null, "cost": 0.0, "latency": 14
+      "provenance": {
+        "ticket_id": "step1.result.ticket_id"
+      },
+      "effect_class": "idempotent",
+      "llm_span": null,
+      "cost": 0.0,
+      "latency": 14
     },
     {
       "i": 6,
       "tool": "email.send",
-      "args": {"to": "priya@biz.co", "subject": "Your refund has been processed", "body": "Hi Priya, your refund of $230.00 for order E5523 (item not received) has been processed. You should see it in 3-5 business days."},
-      "result": {"message_id": "msg_0005", "to": "priya@biz.co", "delivered": true},
+      "args": {
+        "to": "priya@biz.co",
+        "subject": "Your refund has been processed",
+        "body": "Hi Priya, your refund of $230.00 for order E5523 (item not received) has been processed. You should see it in 3-5 business days."
+      },
+      "result": {
+        "message_id": "msg_0005",
+        "to": "priya@biz.co",
+        "delivered": true
+      },
       "result_digest": "f6a7b8c9d0e10005",
-      "provenance": {"to": "step1.result.customer_email"},
+      "provenance": {
+        "to": "step1.result.customer_email"
+      },
       "effect_class": "irreversible",
       "llm_span": "Sending refund confirmation to priya@biz.co for order E5523",
-      "cost": 0.036, "latency": 325
+      "cost": 0.036,
+      "latency": 325
     }
   ],
   "verified_success": true,

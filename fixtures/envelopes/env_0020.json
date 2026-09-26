@@ -1,0 +1,10 @@
+{
+  "envelope_id": "env_0020",
+  "tenant": "acme",
+  "source": "webhook",
+  "raw_text": "Hi, my order T1078 arrived damaged. Can I get a refund please?",
+  "structured": {
+    "ticket_id": "TKT-120",
+    "customer_email": "cara@old.io"
+  }
+}

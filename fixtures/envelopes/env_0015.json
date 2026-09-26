@@ -1,0 +1,10 @@
+{
+  "envelope_id": "env_0015",
+  "tenant": "acme",
+  "source": "webhook",
+  "raw_text": "Hi, my order O6523 was the wrong item. Can I get a refund please?",
+  "structured": {
+    "ticket_id": "TKT-115",
+    "customer_email": "mei@shop.io"
+  }
+}

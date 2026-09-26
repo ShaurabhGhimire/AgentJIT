@@ -1,0 +1,10 @@
+{
+  "envelope_id": "env_0012",
+  "tenant": "acme",
+  "source": "webhook",
+  "raw_text": "Hi, my order L3290 was the wrong item. Can I get a refund please?",
+  "structured": {
+    "ticket_id": "TKT-112",
+    "customer_email": "sue@biz.com"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "envelope_id": "env_0022",
+  "tenant": "acme",
+  "source": "webhook",
+  "raw_text": "Hi, my order U2102 never arrived. Can I get a refund please?",
+  "structured": {
+    "ticket_id": "TKT-122",
+    "customer_email": "priya@corp.io"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "envelope_id": "env_0011",
+  "tenant": "acme",
+  "source": "webhook",
+  "raw_text": "Hi, my order K2189 never arrived. Can I get a refund please?",
+  "structured": {
+    "ticket_id": "TKT-111",
+    "customer_email": "bob@mail.io"
+  }
+}

@@ -1,5 +1,6 @@
 {
   "trace_id": "tr_0002",
+  "envelope_id": "env_0002",
   "family": "refund_request",
   "mode": "interpreted",
   "signature": "get_order>get_shipments>payments.refund>tickets.update>email.send",
@@ -7,66 +8,138 @@
     {
       "i": 1,
       "tool": "get_order",
-      "args": {"order_id": "B2210"},
+      "args": {
+        "order_id": "B2210"
+      },
       "result": {
-        "order_id": "B2210", "charge_id": "ch_91", "total": 120.00,
-        "currency": "USD", "status": "delivered", "customer_email": "li@corp.com",
-        "ticket_id": "TKT-102", "days_since_delivery": 3, "reason": "not_received"
+        "order_id": "B2210",
+        "charge_id": "ch_91",
+        "total": 120.0,
+        "currency": "USD",
+        "status": "delivered",
+        "customer_email": "li@corp.com",
+        "ticket_id": "TKT-102",
+        "days_since_delivery": 3,
+        "reason": "not_received"
       },
       "result_digest": "a1b2c3d4e5f60002",
-      "provenance": {"order_id": "input.order_id"},
-      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 11
+      "provenance": {
+        "order_id": "input.order_id"
+      },
+      "effect_class": "read",
+      "llm_span": null,
+      "cost": 0.0,
+      "latency": 11
     },
     {
       "i": 2,
       "tool": "get_shipments",
-      "args": {"order_id": "B2210"},
-      "result": [{"shipment_id": "SHP-102", "tracking": "9400111899223450000014", "status": "delivered", "delivered_at": "2026-09-23T09:45:00Z"}],
+      "args": {
+        "order_id": "B2210"
+      },
+      "result": [
+        {
+          "shipment_id": "SHP-102",
+          "tracking": "9400111899223450000014",
+          "status": "delivered",
+          "delivered_at": "2026-09-23T09:45:00Z"
+        }
+      ],
       "result_digest": "b2c3d4e5f6a70002",
-      "provenance": {"order_id": "step1.result.order_id"},
-      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 8
+      "provenance": {
+        "order_id": "step1.result.order_id"
+      },
+      "effect_class": "read",
+      "llm_span": null,
+      "cost": 0.0,
+      "latency": 8
     },
     {
       "i": 3,
       "op": "compute_amount",
-      "args": {"total": 120.00},
-      "result": {"amount": 120.00},
+      "args": {
+        "total": 120.0
+      },
+      "result": {
+        "amount": 120.0
+      },
       "result_digest": "c3d4e5f6a7b80002",
-      "provenance": {"total": "step1.result.total"},
-      "effect_class": "pure", "llm_span": null, "cost": 0.0, "latency": 0
+      "provenance": {
+        "total": "step1.result.total"
+      },
+      "effect_class": "pure",
+      "llm_span": null,
+      "cost": 0.0,
+      "latency": 0
     },
     {
       "i": 4,
       "tool": "payments.refund",
-      "args": {"charge_id": "ch_91", "amount": 120.00},
-      "result": {"refund_id": "ref_002", "charge_id": "ch_91", "amount": 120.00, "status": "succeeded", "created_at": "2026-09-26T10:01:00Z"},
+      "args": {
+        "charge_id": "ch_91",
+        "amount": 120.0
+      },
+      "result": {
+        "refund_id": "ref_002",
+        "charge_id": "ch_91",
+        "amount": 120.0,
+        "status": "succeeded",
+        "created_at": "2026-09-26T10:01:00Z"
+      },
       "result_digest": "d4e5f6a7b8c90002",
-      "provenance": {"charge_id": "step1.result.charge_id", "amount": "step3.result.amount"},
+      "provenance": {
+        "charge_id": "step1.result.charge_id",
+        "amount": "step3.result.amount"
+      },
       "effect_class": "irreversible",
       "llm_span": "Issuing refund of $120.00 to charge ch_91 for order B2210",
-      "cost": 0.009, "latency": 420
+      "cost": 0.009,
+      "latency": 420
     },
     {
       "i": 5,
       "tool": "tickets.update",
-      "args": {"ticket_id": "TKT-102", "status": "resolved"},
-      "result": {"ticket_id": "TKT-102", "status": "resolved", "updated_at": "2026-09-26T10:01:01Z"},
+      "args": {
+        "ticket_id": "TKT-102",
+        "status": "resolved"
+      },
+      "result": {
+        "ticket_id": "TKT-102",
+        "status": "resolved",
+        "updated_at": "2026-09-26T10:01:01Z"
+      },
       "result_digest": "e5f6a7b8c9d00002",
-      "provenance": {"ticket_id": "step1.result.ticket_id"},
-      "effect_class": "idempotent", "llm_span": null, "cost": 0.0, "latency": 11
+      "provenance": {
+        "ticket_id": "step1.result.ticket_id"
+      },
+      "effect_class": "idempotent",
+      "llm_span": null,
+      "cost": 0.0,
+      "latency": 11
     },
     {
       "i": 6,
       "tool": "email.send",
-      "args": {"to": "li@corp.com", "subject": "Your refund has been processed", "body": "Hi Li, your refund of $120.00 for order B2210 (item not received) has been processed. You should see it in 3-5 business days."},
-      "result": {"message_id": "msg_0002", "to": "li@corp.com", "delivered": true},
+      "args": {
+        "to": "li@corp.com",
+        "subject": "Your refund has been processed",
+        "body": "Hi Li, your refund of $120.00 for order B2210 (item not received) has been processed. You should see it in 3-5 business days."
+      },
+      "result": {
+        "message_id": "msg_0002",
+        "to": "li@corp.com",
+        "delivered": true
+      },
       "result_digest": "f6a7b8c9d0e10002",
-      "provenance": {"to": "step1.result.customer_email"},
+      "provenance": {
+        "to": "step1.result.customer_email"
+      },
       "effect_class": "irreversible",
       "llm_span": "Sending refund confirmation to li@corp.com for order B2210",
-      "cost": 0.031, "latency": 295
+      "cost": 0.031,
+      "latency": 295
     }
   ],
   "verified_success": true,
-  "cost_usd": 0.040
+  "cost_usd": 0.04
 }

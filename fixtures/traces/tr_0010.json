@@ -1,5 +1,6 @@
 {
   "trace_id": "tr_0010",
+  "envelope_id": "env_0010",
   "family": "refund_request",
   "mode": "interpreted",
   "signature": "get_order>get_shipments>payments.refund>tickets.update>email.send",
@@ -7,64 +8,136 @@
     {
       "i": 1,
       "tool": "get_order",
-      "args": {"order_id": "J1078"},
+      "args": {
+        "order_id": "J1078"
+      },
       "result": {
-        "order_id": "J1078", "charge_id": "ch_82", "total": 55.50,
-        "currency": "USD", "status": "delivered", "customer_email": "zee@net.com",
-        "ticket_id": "TKT-110", "days_since_delivery": 11, "reason": "damaged"
+        "order_id": "J1078",
+        "charge_id": "ch_82",
+        "total": 55.5,
+        "currency": "USD",
+        "status": "delivered",
+        "customer_email": "zee@net.com",
+        "ticket_id": "TKT-110",
+        "days_since_delivery": 11,
+        "reason": "damaged"
       },
       "result_digest": "a1b2c3d4e5f60010",
-      "provenance": {"order_id": "input.order_id"},
-      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 13
+      "provenance": {
+        "order_id": "input.order_id"
+      },
+      "effect_class": "read",
+      "llm_span": null,
+      "cost": 0.0,
+      "latency": 13
     },
     {
       "i": 2,
       "tool": "get_shipments",
-      "args": {"order_id": "J1078"},
-      "result": [{"shipment_id": "SHP-110", "tracking": "1Z999AA10123456010", "status": "delivered", "delivered_at": "2026-09-15T09:30:00Z"}],
+      "args": {
+        "order_id": "J1078"
+      },
+      "result": [
+        {
+          "shipment_id": "SHP-110",
+          "tracking": "1Z999AA10123456010",
+          "status": "delivered",
+          "delivered_at": "2026-09-15T09:30:00Z"
+        }
+      ],
       "result_digest": "b2c3d4e5f6a70010",
-      "provenance": {"order_id": "step1.result.order_id"},
-      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 9
+      "provenance": {
+        "order_id": "step1.result.order_id"
+      },
+      "effect_class": "read",
+      "llm_span": null,
+      "cost": 0.0,
+      "latency": 9
     },
     {
       "i": 3,
       "op": "compute_amount",
-      "args": {"total": 55.50},
-      "result": {"amount": 55.50},
+      "args": {
+        "total": 55.5
+      },
+      "result": {
+        "amount": 55.5
+      },
       "result_digest": "c3d4e5f6a7b80010",
-      "provenance": {"total": "step1.result.total"},
-      "effect_class": "pure", "llm_span": null, "cost": 0.0, "latency": 0
+      "provenance": {
+        "total": "step1.result.total"
+      },
+      "effect_class": "pure",
+      "llm_span": null,
+      "cost": 0.0,
+      "latency": 0
     },
     {
       "i": 4,
       "tool": "payments.refund",
-      "args": {"charge_id": "ch_82", "amount": 55.50},
-      "result": {"refund_id": "ref_010", "charge_id": "ch_82", "amount": 55.50, "status": "succeeded", "created_at": "2026-09-26T10:09:00Z"},
+      "args": {
+        "charge_id": "ch_82",
+        "amount": 55.5
+      },
+      "result": {
+        "refund_id": "ref_010",
+        "charge_id": "ch_82",
+        "amount": 55.5,
+        "status": "succeeded",
+        "created_at": "2026-09-26T10:09:00Z"
+      },
       "result_digest": "d4e5f6a7b8c90010",
-      "provenance": {"charge_id": "step1.result.charge_id", "amount": "step3.result.amount"},
+      "provenance": {
+        "charge_id": "step1.result.charge_id",
+        "amount": "step3.result.amount"
+      },
       "effect_class": "irreversible",
       "llm_span": "Issuing refund of $55.50 to charge ch_82 for order J1078",
-      "cost": 0.008, "latency": 370
+      "cost": 0.008,
+      "latency": 370
     },
     {
       "i": 5,
       "tool": "tickets.update",
-      "args": {"ticket_id": "TKT-110", "status": "resolved"},
-      "result": {"ticket_id": "TKT-110", "status": "resolved", "updated_at": "2026-09-26T10:09:01Z"},
+      "args": {
+        "ticket_id": "TKT-110",
+        "status": "resolved"
+      },
+      "result": {
+        "ticket_id": "TKT-110",
+        "status": "resolved",
+        "updated_at": "2026-09-26T10:09:01Z"
+      },
       "result_digest": "e5f6a7b8c9d00010",
-      "provenance": {"ticket_id": "step1.result.ticket_id"},
-      "effect_class": "idempotent", "llm_span": null, "cost": 0.0, "latency": 12
+      "provenance": {
+        "ticket_id": "step1.result.ticket_id"
+      },
+      "effect_class": "idempotent",
+      "llm_span": null,
+      "cost": 0.0,
+      "latency": 12
     },
     {
       "i": 6,
       "tool": "email.send",
-      "args": {"to": "zee@net.com", "subject": "Your refund has been processed", "body": "Hi Zee, your refund of $55.50 for order J1078 (damaged item) has been processed. You should see it in 3-5 business days."},
-      "result": {"message_id": "msg_0010", "to": "zee@net.com", "delivered": true},
+      "args": {
+        "to": "zee@net.com",
+        "subject": "Your refund has been processed",
+        "body": "Hi Zee, your refund of $55.50 for order J1078 (damaged item) has been processed. You should see it in 3-5 business days."
+      },
+      "result": {
+        "message_id": "msg_0010",
+        "to": "zee@net.com",
+        "delivered": true
+      },
       "result_digest": "f6a7b8c9d0e10010",
-      "provenance": {"to": "step1.result.customer_email"},
+      "provenance": {
+        "to": "step1.result.customer_email"
+      },
       "effect_class": "irreversible",
       "llm_span": "Sending refund confirmation to zee@net.com for order J1078",
-      "cost": 0.030, "latency": 295
+      "cost": 0.03,
+      "latency": 295
     }
   ],
   "verified_success": true,

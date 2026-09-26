@@ -1,5 +1,6 @@
 {
   "trace_id": "tr_0008",
+  "envelope_id": "env_0008",
   "family": "refund_request",
   "mode": "interpreted",
   "signature": "get_order>get_shipments>payments.refund>tickets.update>email.send",
@@ -7,64 +8,136 @@
     {
       "i": 1,
       "tool": "get_order",
-      "args": {"order_id": "H8856"},
+      "args": {
+        "order_id": "H8856"
+      },
       "result": {
-        "order_id": "H8856", "charge_id": "ch_63", "total": 29.99,
-        "currency": "USD", "status": "delivered", "customer_email": "kim@shop.com",
-        "ticket_id": "TKT-108", "days_since_delivery": 22, "reason": "not_received"
+        "order_id": "H8856",
+        "charge_id": "ch_63",
+        "total": 29.99,
+        "currency": "USD",
+        "status": "delivered",
+        "customer_email": "kim@shop.com",
+        "ticket_id": "TKT-108",
+        "days_since_delivery": 22,
+        "reason": "not_received"
       },
       "result_digest": "a1b2c3d4e5f60008",
-      "provenance": {"order_id": "input.order_id"},
-      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 11
+      "provenance": {
+        "order_id": "input.order_id"
+      },
+      "effect_class": "read",
+      "llm_span": null,
+      "cost": 0.0,
+      "latency": 11
     },
     {
       "i": 2,
       "tool": "get_shipments",
-      "args": {"order_id": "H8856"},
-      "result": [{"shipment_id": "SHP-108", "tracking": "9400111899223008080", "status": "delivered", "delivered_at": "2026-09-04T07:55:00Z"}],
+      "args": {
+        "order_id": "H8856"
+      },
+      "result": [
+        {
+          "shipment_id": "SHP-108",
+          "tracking": "9400111899223008080",
+          "status": "delivered",
+          "delivered_at": "2026-09-04T07:55:00Z"
+        }
+      ],
       "result_digest": "b2c3d4e5f6a70008",
-      "provenance": {"order_id": "step1.result.order_id"},
-      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 8
+      "provenance": {
+        "order_id": "step1.result.order_id"
+      },
+      "effect_class": "read",
+      "llm_span": null,
+      "cost": 0.0,
+      "latency": 8
     },
     {
       "i": 3,
       "op": "compute_amount",
-      "args": {"total": 29.99},
-      "result": {"amount": 29.99},
+      "args": {
+        "total": 29.99
+      },
+      "result": {
+        "amount": 29.99
+      },
       "result_digest": "c3d4e5f6a7b80008",
-      "provenance": {"total": "step1.result.total"},
-      "effect_class": "pure", "llm_span": null, "cost": 0.0, "latency": 0
+      "provenance": {
+        "total": "step1.result.total"
+      },
+      "effect_class": "pure",
+      "llm_span": null,
+      "cost": 0.0,
+      "latency": 0
     },
     {
       "i": 4,
       "tool": "payments.refund",
-      "args": {"charge_id": "ch_63", "amount": 29.99},
-      "result": {"refund_id": "ref_008", "charge_id": "ch_63", "amount": 29.99, "status": "succeeded", "created_at": "2026-09-26T10:07:00Z"},
+      "args": {
+        "charge_id": "ch_63",
+        "amount": 29.99
+      },
+      "result": {
+        "refund_id": "ref_008",
+        "charge_id": "ch_63",
+        "amount": 29.99,
+        "status": "succeeded",
+        "created_at": "2026-09-26T10:07:00Z"
+      },
       "result_digest": "d4e5f6a7b8c90008",
-      "provenance": {"charge_id": "step1.result.charge_id", "amount": "step3.result.amount"},
+      "provenance": {
+        "charge_id": "step1.result.charge_id",
+        "amount": "step3.result.amount"
+      },
       "effect_class": "irreversible",
       "llm_span": "Issuing refund of $29.99 to charge ch_63 for order H8856",
-      "cost": 0.007, "latency": 340
+      "cost": 0.007,
+      "latency": 340
     },
     {
       "i": 5,
       "tool": "tickets.update",
-      "args": {"ticket_id": "TKT-108", "status": "resolved"},
-      "result": {"ticket_id": "TKT-108", "status": "resolved", "updated_at": "2026-09-26T10:07:01Z"},
+      "args": {
+        "ticket_id": "TKT-108",
+        "status": "resolved"
+      },
+      "result": {
+        "ticket_id": "TKT-108",
+        "status": "resolved",
+        "updated_at": "2026-09-26T10:07:01Z"
+      },
       "result_digest": "e5f6a7b8c9d00008",
-      "provenance": {"ticket_id": "step1.result.ticket_id"},
-      "effect_class": "idempotent", "llm_span": null, "cost": 0.0, "latency": 10
+      "provenance": {
+        "ticket_id": "step1.result.ticket_id"
+      },
+      "effect_class": "idempotent",
+      "llm_span": null,
+      "cost": 0.0,
+      "latency": 10
     },
     {
       "i": 6,
       "tool": "email.send",
-      "args": {"to": "kim@shop.com", "subject": "Your refund has been processed", "body": "Hi Kim, your refund of $29.99 for order H8856 (item not received) has been processed. You should see it in 3-5 business days."},
-      "result": {"message_id": "msg_0008", "to": "kim@shop.com", "delivered": true},
+      "args": {
+        "to": "kim@shop.com",
+        "subject": "Your refund has been processed",
+        "body": "Hi Kim, your refund of $29.99 for order H8856 (item not received) has been processed. You should see it in 3-5 business days."
+      },
+      "result": {
+        "message_id": "msg_0008",
+        "to": "kim@shop.com",
+        "delivered": true
+      },
       "result_digest": "f6a7b8c9d0e10008",
-      "provenance": {"to": "step1.result.customer_email"},
+      "provenance": {
+        "to": "step1.result.customer_email"
+      },
       "effect_class": "irreversible",
       "llm_span": "Sending refund confirmation to kim@shop.com for order H8856",
-      "cost": 0.028, "latency": 275
+      "cost": 0.028,
+      "latency": 275
     }
   ],
   "verified_success": true,

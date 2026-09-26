@@ -1,6 +1,6 @@
 {
-  "trace_id": "tr_0007",
-  "envelope_id": "env_0007",
+  "trace_id": "tr_0021",
+  "envelope_id": "env_0021",
   "family": "refund_request",
   "mode": "interpreted",
   "signature": "get_order>get_shipments>payments.refund>tickets.update>email.send",
@@ -9,43 +9,43 @@
       "i": 1,
       "tool": "get_order",
       "args": {
-        "order_id": "G7745"
+        "order_id": "U2101"
       },
       "result": {
-        "order_id": "G7745",
-        "charge_id": "ch_55",
-        "total": 145.0,
+        "order_id": "U2101",
+        "charge_id": "ch_31",
+        "total": 64.0,
         "currency": "USD",
         "status": "delivered",
-        "customer_email": "anna@dot.io",
-        "ticket_id": "TKT-107",
-        "days_since_delivery": 8,
+        "customer_email": "omar@mail.io",
+        "ticket_id": "TKT-121",
+        "days_since_delivery": 19,
         "reason": "damaged"
       },
-      "result_digest": "a1b2c3d4e5f60007",
+      "result_digest": "111562879e585fa0",
       "provenance": {
         "order_id": "input.order_id"
       },
       "effect_class": "read",
       "llm_span": null,
       "cost": 0.0,
-      "latency": 12
+      "latency": 14
     },
     {
       "i": 2,
       "tool": "get_shipments",
       "args": {
-        "order_id": "G7745"
+        "order_id": "U2101"
       },
       "result": [
         {
-          "shipment_id": "SHP-107",
-          "tracking": "1Z999AA10123456007",
+          "shipment_id": "SHP-121",
+          "tracking": "1Z999AA10123456021",
           "status": "delivered",
-          "delivered_at": "2026-09-18T13:15:00Z"
+          "delivered_at": "2026-09-10T12:00:00Z"
         }
       ],
-      "result_digest": "b2c3d4e5f6a70007",
+      "result_digest": "0c304b85caf807b9",
       "provenance": {
         "order_id": "step1.result.order_id"
       },
@@ -58,12 +58,12 @@
       "i": 3,
       "op": "compute_amount",
       "args": {
-        "total": 145.0
+        "total": 64.0
       },
       "result": {
-        "amount": 145.0
+        "amount": 64.0
       },
-      "result_digest": "c3d4e5f6a7b80007",
+      "result_digest": "37b76561d1a35b75",
       "provenance": {
         "total": "step1.result.total"
       },
@@ -76,39 +76,39 @@
       "i": 4,
       "tool": "payments.refund",
       "args": {
-        "charge_id": "ch_55",
-        "amount": 145.0
+        "charge_id": "ch_31",
+        "amount": 64.0
       },
       "result": {
-        "refund_id": "ref_007",
-        "charge_id": "ch_55",
-        "amount": 145.0,
+        "refund_id": "ref_021",
+        "charge_id": "ch_31",
+        "amount": 64.0,
         "status": "succeeded",
-        "created_at": "2026-09-26T10:06:00Z"
+        "created_at": "2026-09-26T10:30:00Z"
       },
-      "result_digest": "d4e5f6a7b8c90007",
+      "result_digest": "2298636817ad0be4",
       "provenance": {
         "charge_id": "step1.result.charge_id",
         "amount": "step3.result.amount"
       },
       "effect_class": "irreversible",
-      "llm_span": "Issuing refund of $145.00 to charge ch_55 for order G7745",
-      "cost": 0.009,
-      "latency": 400
+      "llm_span": "Issuing refund of $64.00 to charge ch_31 for order U2101",
+      "cost": 0.008,
+      "latency": 380
     },
     {
       "i": 5,
       "tool": "tickets.update",
       "args": {
-        "ticket_id": "TKT-107",
+        "ticket_id": "TKT-121",
         "status": "resolved"
       },
       "result": {
-        "ticket_id": "TKT-107",
+        "ticket_id": "TKT-121",
         "status": "resolved",
-        "updated_at": "2026-09-26T10:06:01Z"
+        "updated_at": "2026-09-26T10:30:01Z"
       },
-      "result_digest": "e5f6a7b8c9d00007",
+      "result_digest": "214f4d7f84ee574a",
       "provenance": {
         "ticket_id": "step1.result.ticket_id"
       },
@@ -121,25 +121,25 @@
       "i": 6,
       "tool": "email.send",
       "args": {
-        "to": "anna@dot.io",
+        "to": "omar@mail.io",
         "subject": "Your refund has been processed",
-        "body": "Hi Anna, your refund of $145.00 for order G7745 (damaged item) has been processed. You should see it in 3-5 business days."
+        "body": "Hi Omar, your refund of $64.00 for order U2101 has been processed. You should see it in 3-5 business days."
       },
       "result": {
-        "message_id": "msg_0007",
-        "to": "anna@dot.io",
+        "message_id": "msg_0021",
+        "to": "omar@mail.io",
         "delivered": true
       },
-      "result_digest": "f6a7b8c9d0e10007",
+      "result_digest": "04099f721b9deff1",
       "provenance": {
         "to": "step1.result.customer_email"
       },
       "effect_class": "irreversible",
-      "llm_span": "Sending refund confirmation to anna@dot.io for order G7745",
-      "cost": 0.034,
-      "latency": 315
+      "llm_span": "Sending refund confirmation to omar@mail.io for order U2101",
+      "cost": 0.033,
+      "latency": 310
     }
   ],
   "verified_success": true,
-  "cost_usd": 0.043
+  "cost_usd": 0.041
 }

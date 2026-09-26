@@ -1,0 +1,10 @@
+{
+  "envelope_id": "env_0008",
+  "tenant": "acme",
+  "source": "webhook",
+  "raw_text": "Hi, my order H8856 never arrived. Can I get a refund please?",
+  "structured": {
+    "ticket_id": "TKT-108",
+    "customer_email": "kim@shop.com"
+  }
+}

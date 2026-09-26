@@ -1,0 +1,10 @@
+{
+  "envelope_id": "env_0005",
+  "tenant": "acme",
+  "source": "webhook",
+  "raw_text": "Hi, my order E5523 never arrived. Can I get a refund please?",
+  "structured": {
+    "ticket_id": "TKT-105",
+    "customer_email": "priya@biz.co"
+  }
+}

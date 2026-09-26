@@ -1,35 +1,104 @@
 {
-  "_comment": "DIVERGENT: 45-day-old order, beyond the 30-day refund window. Different signature: no refund step. Feeds the days_since_delivery<=30 range guard.",
+  "_comment": "DIVERGENT: 45-day-old order, outside the 30-day window. Correct outcome is a denial: ticket closed, denial email, no refund. Verified success, because the verifier judges against policy. Feeds the days_since_delivery range guard's boundary.",
   "trace_id": "tr_0020",
+  "envelope_id": "env_0020",
   "family": "refund_request",
   "mode": "interpreted",
-  "signature": "get_order>get_shipments>email.send",
+  "signature": "get_order>get_shipments>tickets.update>email.send",
   "steps": [
     {
-      "i": 1, "tool": "get_order", "args": {"order_id": "T1078"},
-      "result": {"order_id": "T1078", "charge_id": "ch_89", "total": 340.00, "currency": "USD", "status": "delivered", "customer_email": "cara@old.io", "ticket_id": "TKT-120", "days_since_delivery": 45, "reason": "damaged"},
+      "i": 1,
+      "tool": "get_order",
+      "args": {
+        "order_id": "T1078"
+      },
+      "result": {
+        "order_id": "T1078",
+        "charge_id": "ch_89",
+        "total": 340.0,
+        "currency": "USD",
+        "status": "delivered",
+        "customer_email": "cara@old.io",
+        "ticket_id": "TKT-120",
+        "days_since_delivery": 45,
+        "reason": "damaged"
+      },
       "result_digest": "a1b2c3d4e5f60020",
-      "provenance": {"order_id": "input.order_id"},
-      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 14
+      "provenance": {
+        "order_id": "input.order_id"
+      },
+      "effect_class": "read",
+      "llm_span": null,
+      "cost": 0.0,
+      "latency": 14
     },
     {
-      "i": 2, "tool": "get_shipments", "args": {"order_id": "T1078"},
-      "result": [{"shipment_id": "SHP-120", "tracking": "1Z999AA10123456020", "status": "delivered", "delivered_at": "2026-08-12T14:00:00Z"}],
+      "i": 2,
+      "tool": "get_shipments",
+      "args": {
+        "order_id": "T1078"
+      },
+      "result": [
+        {
+          "shipment_id": "SHP-120",
+          "tracking": "1Z999AA10123456020",
+          "status": "delivered",
+          "delivered_at": "2026-08-12T14:00:00Z"
+        }
+      ],
       "result_digest": "b2c3d4e5f6a70020",
-      "provenance": {"order_id": "step1.result.order_id"},
-      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 9
+      "provenance": {
+        "order_id": "step1.result.order_id"
+      },
+      "effect_class": "read",
+      "llm_span": null,
+      "cost": 0.0,
+      "latency": 9
     },
     {
-      "i": 3, "tool": "email.send",
-      "args": {"to": "cara@old.io", "subject": "Regarding your refund request for order T1078", "body": "Hi Cara, we've reviewed your refund request for order T1078. Unfortunately, your order was delivered 45 days ago, which is outside our 30-day return window. We're unable to process a refund at this time. If you have additional questions, please reply to this email."},
-      "result": {"message_id": "msg_0020", "to": "cara@old.io", "delivered": true},
+      "i": 3,
+      "tool": "tickets.update",
+      "args": {
+        "ticket_id": "TKT-120",
+        "status": "closed"
+      },
+      "result": {
+        "ticket_id": "TKT-120",
+        "status": "closed",
+        "updated_at": "2026-09-26T10:19:01Z"
+      },
+      "result_digest": "6eacd9d34ffebd7a",
+      "provenance": {
+        "ticket_id": "step1.result.ticket_id"
+      },
+      "effect_class": "idempotent",
+      "llm_span": "Outside the refund window; closing the ticket.",
+      "cost": 0.0,
+      "latency": 12
+    },
+    {
+      "i": 4,
+      "tool": "email.send",
+      "args": {
+        "to": "cara@old.io",
+        "subject": "Regarding your refund request for order T1078",
+        "body": "Hi Cara, we've reviewed your refund request for order T1078. Unfortunately, your order was delivered 45 days ago, which is outside our 30-day return window. We're unable to process a refund at this time. If you have additional questions, please reply to this email."
+      },
+      "result": {
+        "message_id": "msg_0020",
+        "to": "cara@old.io",
+        "delivered": true
+      },
       "result_digest": "c3d4e5f6a7b80020",
-      "provenance": {"to": "step1.result.customer_email"},
+      "provenance": {
+        "to": "step1.result.customer_email"
+      },
       "effect_class": "irreversible",
       "llm_span": "Order T1078 is 45 days old (>30-day window). Sending denial notice to cara@old.io.",
-      "cost": 0.038, "latency": 350
+      "cost": 0.038,
+      "latency": 350
     }
   ],
-  "verified_success": false,
+  "verified_success": true,
   "cost_usd": 0.038
 }
