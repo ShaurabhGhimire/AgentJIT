@@ -1,0 +1,57 @@
+{
+  "trace_id": "tr_0013",
+  "family": "refund_request",
+  "mode": "interpreted",
+  "signature": "get_order>get_shipments>payments.refund>tickets.update>email.send",
+  "steps": [
+    {
+      "i": 1, "tool": "get_order", "args": {"order_id": "M4301"},
+      "result": {"order_id": "M4301", "charge_id": "ch_18", "total": 76.50, "currency": "USD", "status": "delivered", "customer_email": "ava@tech.io", "ticket_id": "TKT-113", "days_since_delivery": 20, "reason": "damaged"},
+      "result_digest": "a1b2c3d4e5f60013",
+      "provenance": {"order_id": "input.order_id"},
+      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 14
+    },
+    {
+      "i": 2, "tool": "get_shipments", "args": {"order_id": "M4301"},
+      "result": [{"shipment_id": "SHP-113", "tracking": "1Z999AA10123456013", "status": "delivered", "delivered_at": "2026-09-06T08:20:00Z"}],
+      "result_digest": "b2c3d4e5f6a70013",
+      "provenance": {"order_id": "step1.result.order_id"},
+      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 10
+    },
+    {
+      "i": 3, "op": "compute_amount", "args": {"total": 76.50},
+      "result": {"amount": 76.50},
+      "result_digest": "c3d4e5f6a7b80013",
+      "provenance": {"total": "step1.result.total"},
+      "effect_class": "pure", "llm_span": null, "cost": 0.0, "latency": 0
+    },
+    {
+      "i": 4, "tool": "payments.refund", "args": {"charge_id": "ch_18", "amount": 76.50},
+      "result": {"refund_id": "ref_013", "charge_id": "ch_18", "amount": 76.50, "status": "succeeded", "created_at": "2026-09-26T10:12:00Z"},
+      "result_digest": "d4e5f6a7b8c90013",
+      "provenance": {"charge_id": "step1.result.charge_id", "amount": "step3.result.amount"},
+      "effect_class": "irreversible",
+      "llm_span": "Issuing refund of $76.50 to charge ch_18 for order M4301",
+      "cost": 0.008, "latency": 375
+    },
+    {
+      "i": 5, "tool": "tickets.update", "args": {"ticket_id": "TKT-113", "status": "resolved"},
+      "result": {"ticket_id": "TKT-113", "status": "resolved", "updated_at": "2026-09-26T10:12:01Z"},
+      "result_digest": "e5f6a7b8c9d00013",
+      "provenance": {"ticket_id": "step1.result.ticket_id"},
+      "effect_class": "idempotent", "llm_span": null, "cost": 0.0, "latency": 11
+    },
+    {
+      "i": 6, "tool": "email.send",
+      "args": {"to": "ava@tech.io", "subject": "Your refund has been processed", "body": "Hi Ava, your refund of $76.50 for order M4301 (damaged item) has been processed. You should see it in 3-5 business days."},
+      "result": {"message_id": "msg_0013", "to": "ava@tech.io", "delivered": true},
+      "result_digest": "f6a7b8c9d0e10013",
+      "provenance": {"to": "step1.result.customer_email"},
+      "effect_class": "irreversible",
+      "llm_span": "Sending refund confirmation to ava@tech.io for order M4301",
+      "cost": 0.031, "latency": 300
+    }
+  ],
+  "verified_success": true,
+  "cost_usd": 0.039
+}

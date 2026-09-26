@@ -1,0 +1,63 @@
+{
+  "_comment": "DIVERGENT: Two-shipment order. Same tool sequence; len(shipments)==2. Guard inference produces len(shipments)==1.",
+  "trace_id": "tr_0018",
+  "family": "refund_request",
+  "mode": "interpreted",
+  "signature": "get_order>get_shipments>payments.refund>tickets.update>email.send",
+  "steps": [
+    {
+      "i": 1, "tool": "get_order", "args": {"order_id": "R9856"},
+      "result": {"order_id": "R9856", "charge_id": "ch_67", "total": 195.00, "currency": "USD", "status": "delivered", "customer_email": "nina@ship.io", "ticket_id": "TKT-118", "days_since_delivery": 3, "reason": "damaged"},
+      "result_digest": "a1b2c3d4e5f60018",
+      "provenance": {"order_id": "input.order_id"},
+      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 15
+    },
+    {
+      "i": 2, "tool": "get_shipments", "args": {"order_id": "R9856"},
+      "result": [
+        {"shipment_id": "SHP-118a", "tracking": "1Z999AA10123456018", "status": "delivered", "delivered_at": "2026-09-23T10:00:00Z"},
+        {"shipment_id": "SHP-118b", "tracking": "1Z999BB20234567019", "status": "delivered", "delivered_at": "2026-09-23T15:30:00Z"}
+      ],
+      "result_digest": "b2c3d4e5f6a70018",
+      "provenance": {"order_id": "step1.result.order_id"},
+      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 11
+    },
+    {
+      "i": 3, "op": "compute_amount", "args": {"total": 195.00},
+      "result": {"amount": 195.00},
+      "result_digest": "c3d4e5f6a7b80018",
+      "provenance": {"total": "step1.result.total"},
+      "effect_class": "pure",
+      "llm_span": "Two shipments found; issuing full refund for entire order",
+      "cost": 0.004, "latency": 0
+    },
+    {
+      "i": 4, "tool": "payments.refund", "args": {"charge_id": "ch_67", "amount": 195.00},
+      "result": {"refund_id": "ref_018", "charge_id": "ch_67", "amount": 195.00, "status": "succeeded", "created_at": "2026-09-26T10:17:00Z"},
+      "result_digest": "d4e5f6a7b8c90018",
+      "provenance": {"charge_id": "step1.result.charge_id", "amount": "step3.result.amount"},
+      "effect_class": "irreversible",
+      "llm_span": "Issuing full refund of $195.00 for split-shipment order R9856",
+      "cost": 0.013, "latency": 495
+    },
+    {
+      "i": 5, "tool": "tickets.update", "args": {"ticket_id": "TKT-118", "status": "resolved"},
+      "result": {"ticket_id": "TKT-118", "status": "resolved", "updated_at": "2026-09-26T10:17:01Z"},
+      "result_digest": "e5f6a7b8c9d00018",
+      "provenance": {"ticket_id": "step1.result.ticket_id"},
+      "effect_class": "idempotent", "llm_span": null, "cost": 0.0, "latency": 14
+    },
+    {
+      "i": 6, "tool": "email.send",
+      "args": {"to": "nina@ship.io", "subject": "Your refund has been processed", "body": "Hi Nina, your refund of $195.00 for order R9856 (damaged items across 2 shipments) has been fully processed. You should see it in 3-5 business days."},
+      "result": {"message_id": "msg_0018", "to": "nina@ship.io", "delivered": true},
+      "result_digest": "f6a7b8c9d0e10018",
+      "provenance": {"to": "step1.result.customer_email"},
+      "effect_class": "irreversible",
+      "llm_span": "Sending refund confirmation to nina@ship.io for split-shipment order R9856",
+      "cost": 0.037, "latency": 340
+    }
+  ],
+  "verified_success": true,
+  "cost_usd": 0.054
+}

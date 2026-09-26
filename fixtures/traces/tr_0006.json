@@ -1,0 +1,72 @@
+{
+  "trace_id": "tr_0006",
+  "family": "refund_request",
+  "mode": "interpreted",
+  "signature": "get_order>get_shipments>payments.refund>tickets.update>email.send",
+  "steps": [
+    {
+      "i": 1,
+      "tool": "get_order",
+      "args": {"order_id": "F6634"},
+      "result": {
+        "order_id": "F6634", "charge_id": "ch_42", "total": 67.25,
+        "currency": "USD", "status": "delivered", "customer_email": "tom@xyz.com",
+        "ticket_id": "TKT-106", "days_since_delivery": 15, "reason": "wrong_item"
+      },
+      "result_digest": "a1b2c3d4e5f60006",
+      "provenance": {"order_id": "input.order_id"},
+      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 13
+    },
+    {
+      "i": 2,
+      "tool": "get_shipments",
+      "args": {"order_id": "F6634"},
+      "result": [{"shipment_id": "SHP-106", "tracking": "1Z999AA10123456006", "status": "delivered", "delivered_at": "2026-09-11T10:00:00Z"}],
+      "result_digest": "b2c3d4e5f6a70006",
+      "provenance": {"order_id": "step1.result.order_id"},
+      "effect_class": "read", "llm_span": null, "cost": 0.0, "latency": 10
+    },
+    {
+      "i": 3,
+      "op": "compute_amount",
+      "args": {"total": 67.25},
+      "result": {"amount": 67.25},
+      "result_digest": "c3d4e5f6a7b80006",
+      "provenance": {"total": "step1.result.total"},
+      "effect_class": "pure", "llm_span": null, "cost": 0.0, "latency": 0
+    },
+    {
+      "i": 4,
+      "tool": "payments.refund",
+      "args": {"charge_id": "ch_42", "amount": 67.25},
+      "result": {"refund_id": "ref_006", "charge_id": "ch_42", "amount": 67.25, "status": "succeeded", "created_at": "2026-09-26T10:05:00Z"},
+      "result_digest": "d4e5f6a7b8c90006",
+      "provenance": {"charge_id": "step1.result.charge_id", "amount": "step3.result.amount"},
+      "effect_class": "irreversible",
+      "llm_span": "Issuing refund of $67.25 to charge ch_42 for order F6634",
+      "cost": 0.008, "latency": 365
+    },
+    {
+      "i": 5,
+      "tool": "tickets.update",
+      "args": {"ticket_id": "TKT-106", "status": "resolved"},
+      "result": {"ticket_id": "TKT-106", "status": "resolved", "updated_at": "2026-09-26T10:05:01Z"},
+      "result_digest": "e5f6a7b8c9d00006",
+      "provenance": {"ticket_id": "step1.result.ticket_id"},
+      "effect_class": "idempotent", "llm_span": null, "cost": 0.0, "latency": 11
+    },
+    {
+      "i": 6,
+      "tool": "email.send",
+      "args": {"to": "tom@xyz.com", "subject": "Your refund has been processed", "body": "Hi Tom, your refund of $67.25 for order F6634 (wrong item sent) has been processed. You should see it in 3-5 business days."},
+      "result": {"message_id": "msg_0006", "to": "tom@xyz.com", "delivered": true},
+      "result_digest": "f6a7b8c9d0e10006",
+      "provenance": {"to": "step1.result.customer_email"},
+      "effect_class": "irreversible",
+      "llm_span": "Sending refund confirmation to tom@xyz.com for order F6634",
+      "cost": 0.030, "latency": 290
+    }
+  ],
+  "verified_success": true,
+  "cost_usd": 0.038
+}
